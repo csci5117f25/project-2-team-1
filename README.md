@@ -33,9 +33,20 @@ Which (if any) progressive web app feature(s) does your app support?
 
 ## Mockup images
 
-**[Add images/photos that show your mockup](https://stackoverflow.com/questions/10189356/how-to-add-screenshot-to-readmes-in-github-repository) along with a very brief caption:**
+![Mockups](/mockup/Homepage.png "Home Page")
+This is the main page showing the users grid, based on the GitHub contribution grid, and shows the days of the week and month that they completed all of their tasks, or missed any tasks. The user can also see their completed tasks, tasks they need to do for the day, and the ability
+to create new tasks.
+![Mockups](/mockup/Login.png "Login Page")
+This is the login page where the user can login or create a new account.
+![Mockups](/mockup/Settings.png "Settings")
+On this page, the user is able to modify their Language, allow notifications, username, or delete their acccount.
+![Mockups](/mockup/Sidebar.png "Sidebar")
+This is an example of the expanded sidebar which contains the Tasks, Stats, Settings, and Logout.
+![Mockups](/mockup/Stats.png "Stats")
+Contains basic information about the user and their stats including xp, streak, and level / progress towards the next level.
+![Mockups](/mockup/Task-Details.png "Task Details")
+This screen pops-up after the user clicks on a task from the homepage, and contains a similar chart, but only for that task, the ability to change it from daily to weekly, and delete the task. The user can also scroll left and right to see their other task details.
 
-![](https://media.giphy.com/media/26ufnwz3wDUli7GU0/giphy.gif)
 
 
 ## Testing Notes
