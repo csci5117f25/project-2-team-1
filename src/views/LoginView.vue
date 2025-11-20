@@ -4,7 +4,7 @@ import { useCurrentUser, useFirebaseAuth } from 'vuefire'
 
 const user = useCurrentUser()
 const auth = useFirebaseAuth()
-const provider = new GoogleAuthProvider();
+const provider = new GoogleAuthProvider()
 
 async function login() {
     try {
