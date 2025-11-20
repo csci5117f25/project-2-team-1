@@ -26,7 +26,7 @@ async function logout() {
   try {
     await signOut(auth);
   } catch {
-    alert("oh no")
+    alert("oh no");
   }
 }
 </script>
