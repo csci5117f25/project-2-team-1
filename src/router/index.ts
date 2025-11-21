@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { getCurrentUser } from "vuefire";
 
 import HomeView from "@/views/HomeView.vue";
 import LoginView from "@/views/LoginView.vue";
@@ -12,7 +13,7 @@ const router = createRouter({
     {
       path: "/",
       component: HomeView,
-      meta: { requiresAuth: false },
+      meta: { requiresAuth: true },
     },
     {
       path: "/login",
@@ -39,6 +40,17 @@ const router = createRouter({
       redirect: "/404",
     },
   ],
+});
+
+router.beforeEach(async (to) => {
+  if (to?.meta?.requiresAuth) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return {
+        path: "/login",
+      };
+    }
+  }
 });
 
 export default router;
