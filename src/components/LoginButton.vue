@@ -10,7 +10,7 @@ const router = useRouter();
 
 async function login() {
   try {
-    await signInWithPopup(auth, provider);
+    await signInWithPopup(auth!, provider);
     router.push("/");
   } catch {
     alert("Error logging in");
@@ -34,7 +34,6 @@ async function login() {
   &:hover {
     cursor: pointer;
     background-color: var(--accent-color-tertiary);
-    // color: var(--accent-color-primary);
     transform: translateY(-2px);
     transition: 0.5s;
   }

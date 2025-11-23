@@ -1,9 +1,14 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import Sidebar from "@/components/SidebarComponent.vue";
+import { ref } from "vue";
+
+const isSidebarShown = ref(false);
+</script>
 
 <template>
   <div>
     <router-link to="/">GYST</router-link>
-    <button type="button">
+    <button @click="isSidebarShown = true" type="button">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="16"
@@ -19,6 +24,8 @@
       </svg>
     </button>
   </div>
+
+  <Sidebar @close-sidebar="isSidebarShown = false" v-if="isSidebarShown" />
 </template>
 
 <style scoped lang="scss">
