@@ -9,7 +9,7 @@ const router = useRouter();
 
 async function logout() {
   try {
-    const result = await signOut(auth);
+    await signOut(auth!);
     router.push("login");
   } catch {
     alert("Error logging out");
@@ -29,11 +29,12 @@ async function logout() {
   border-radius: 8px;
   padding: 1.5rem 3.5rem;
   font-size: 1.3rem;
-}
 
-.logout-btn:hover {
-  background-color: var(--accent-color-tertiary);
-  color: var(--accent-color-primary);
-  transform: translateY(-2px);
+  &:hover {
+    cursor: pointer;
+    background-color: var(--accent-color-tertiary);
+    transform: translateY(-2px);
+    transition: 0.5s;
+  }
 }
 </style>
