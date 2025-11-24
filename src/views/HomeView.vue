@@ -59,7 +59,6 @@ function handleComplete(taskId: string) {
   }, 1000);
 }
 </script>
-
 <template>
   <div>
     <Navbar />
