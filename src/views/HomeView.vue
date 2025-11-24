@@ -3,7 +3,6 @@ import Navbar from "@/components/NavbarComponent.vue";
 import { getUserTasks, createTask } from "@/database/database";
 const data = await getUserTasks();
 
-
 function createSampleTask() {
   createTask({
     frequency: "daily",
@@ -11,10 +10,9 @@ function createSampleTask() {
     icon: "",
     last_completed_time: Date.now(),
     current_streak: 0,
-    xp: 10
+    xp: 10,
   });
 }
-
 </script>
 <template>
   <div>
