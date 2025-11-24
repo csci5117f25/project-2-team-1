@@ -1,9 +1,29 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useCurrentUser, useFirestore, useCollection } from "vuefire";
+import { collection, query } from "firebase/firestore";
 import Navbar from "@/components/NavbarComponent.vue";
 
-// bible: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date
+const user = useCurrentUser();
+const db = useFirestore();
 
+// fetch user's tasks from firestore
+const tasksQuery = computed(() =>
+  user.value?.uid ? query(collection(db, "users", user.value.uid, "tasks")) : null
+);
+const userTasks = useCollection(tasksQuery);
+
+// mock data for testing
+const mockTasks = [
+  { id: "1", name: "Morning workout", frequency: "Daily", xp: 50, completed: true },
+  { id: "2", name: "Read for 30 minutes", frequency: "Daily", xp: 30, completed: false },
+  { id: "3", name: "Weekly review", frequency: "Weekly", xp: 100, completed: true },
+];
+
+// show real tasks if available, otherwise show mock data
+const displayTasks = computed(() => (userTasks.value?.length ? userTasks.value : mockTasks));
+
+// format current date for display
 const currentDate = computed(() =>
   new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
 );
@@ -30,7 +50,7 @@ const contributions = computed(() => {
     const weekStartDate = new Date(startDate.getTime() + weekIndex * millisecondsPerWeek);
     const monthLabel = weekStartDate.toLocaleDateString("en-US", { month: "short" });
 
-    // create 7 days for this week
+    // create 7 days for this week (random for now lol)
     const weekDays = Array.from({ length: 7 }, (_, dayIndex) => {
       const dayDate = new Date(weekStartDate.getTime() + dayIndex * 24 * 60 * 60 * 1000);
       const randomActivity = Math.random() > 0.7 ? Math.floor(Math.random() * 100) : 0;
@@ -41,7 +61,7 @@ const contributions = computed(() => {
       };
     });
 
-    // group weeks by month
+    // when month changes, save previous month's data
     if (monthLabel !== currentMonthLabel && weekIndex > 0) {
       monthsData.push({
         month: currentMonthLabel,
@@ -54,7 +74,7 @@ const contributions = computed(() => {
     currentMonthWeeks.push(weekDays);
   }
 
-  // add final month
+  // push last month's data
   if (currentMonthWeeks.length) {
     monthsData.push({
       month: currentMonthLabel,
@@ -94,18 +114,41 @@ const getCellColor = (percent: number) => {
             <span style="top: 37px">Wed</span>
             <span style="top: 63px">Fri</span>
           </div>
-          <div class="calendar">
-            <template v-for="(monthData, monthIndex) in contributions" :key="monthIndex">
-              <div v-for="(weekDays, weekIndex) in monthData.weeks" :key="weekIndex" class="week">
-                <div
-                  v-for="(day, dayIndex) in weekDays"
-                  :key="dayIndex"
-                  :class="['day', getCellColor(day.completionPercent)]"
-                  :title="`${day.date.toDateString()}: ${day.completionPercent}%`"
-                ></div>
-              </div>
-            </template>
+
+          <div class="calendar-container">
+            <div class="calendar">
+              <template v-for="(monthData, monthIndex) in contributions" :key="monthIndex">
+                <div v-for="(weekDays, weekIndex) in monthData.weeks" :key="weekIndex" class="week">
+                  <div
+                    v-for="(day, dayIndex) in weekDays"
+                    :key="dayIndex"
+                    :class="['day', getCellColor(day.completionPercent)]"
+                    :title="`${day.date.toDateString()}: ${day.completionPercent}%`"
+                  ></div>
+                </div>
+              </template>
+            </div>
+
+            <div class="legend">
+              <span>Less</span>
+              <div class="day"></div>
+              <div class="day low"></div>
+              <div class="day mid"></div>
+              <div class="day high"></div>
+              <div class="day highest"></div>
+              <span>More</span>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <h2>Your tasks</h2>
+      <div class="tasks">
+        <div v-for="task in displayTasks" :key="task.id" class="task">
+          <input type="checkbox" :checked="task.completed" />
+          <span class="name">{{ task.name }}</span>
+          <span class="freq">{{ task.frequency }}</span>
+          <span class="xp">{{ task.xp }} XP</span>
         </div>
       </div>
     </div>
@@ -164,6 +207,10 @@ h2 {
   }
 }
 
+.calendar-container {
+  flex: 1;
+}
+
 .calendar {
   display: grid;
   grid-auto-flow: column;
@@ -194,6 +241,48 @@ h2 {
   }
   &.highest {
     background: var(--accent-color-primary);
+  }
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+  font-size: 0.7rem;
+  color: #666;
+  margin-top: 0.75rem;
+}
+
+.tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.task {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  background: white;
+  border-radius: 8px;
+
+  .name {
+    flex: 1;
+    font-weight: 500;
+  }
+  .freq {
+    font-size: 0.8rem;
+    color: #666;
+    padding: 0.2rem 0.5rem;
+    background: #f5f5f5;
+    border-radius: 4px;
+  }
+  .xp {
+    font-weight: bold;
+    color: var(--accent-color-primary);
+    font-size: 0.9rem;
   }
 }
 </style>
