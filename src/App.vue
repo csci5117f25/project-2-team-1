@@ -6,7 +6,6 @@
     <template #fallback>
       Loading...
     </template>
-
   </Suspense>
 </template>
 

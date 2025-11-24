@@ -16,7 +16,6 @@ function createSampleTask() {
 }
 
 </script>
-
 <template>
   <div>
     <Navbar />

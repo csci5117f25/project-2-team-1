@@ -15,9 +15,7 @@ export const getUserTasks = async () => {
     const sortedData = useCollection(query(reference, orderBy("last_completed_time", "desc")));
     return sortedData;
   }
-
 }
-
 
 export const getUserTask = async (taskId: string) => {
 
