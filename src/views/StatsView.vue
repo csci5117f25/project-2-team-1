@@ -12,9 +12,9 @@ const displayTasks = await getUserTasks();
 const newTask = async () => {
   await createTask({
     frequency: "daily",
-    name: "test",
+    name: "",
     icon: "",
-    last_completed_time: Date.now(),
+    last_completed_time: 0,
     current_streak: 0,
     xp: 10,
   });
