@@ -86,10 +86,9 @@ const contributions = computed(() => {
 
 const getCellColor = (percent: number) => {
   if (percent === 0) return "";
-  if (percent <= 25) return "low";
-  if (percent <= 50) return "mid";
-  if (percent <= 75) return "high";
-  return "highest";
+  if (percent <= 33) return "low";
+  if (percent <= 66) return "mid";
+  return "high";
 };
 </script>
 
@@ -234,12 +233,9 @@ h2 {
     background: var(--accent-color-tertiary);
   }
   &.mid {
-    background: var(--accent-color-tertiary);
-  }
-  &.high {
     background: var(--accent-color-secondary);
   }
-  &.highest {
+  &.high {
     background: var(--accent-color-primary);
   }
 }
