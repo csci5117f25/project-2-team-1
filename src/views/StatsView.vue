@@ -1,27 +1,80 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useCurrentUser, useFirestore, useCollection } from "vuefire";
-import { collection, query } from "firebase/firestore";
-import Navbar from "@/components/NavbarComponent.vue";
 
-const user = useCurrentUser();
-const db = useFirestore();
+import Navbar from "@/components/NavbarComponent.vue";
+import { getUserTasks, createTask, updateTask, markTaskComplete } from "@/database/database";
+import type Task from "@/interfaces/Task";
 
 // fetch user's tasks from firestore
-const tasksQuery = computed(() =>
-  user.value?.uid ? query(collection(db, "users", user.value.uid, "tasks")) : null
-);
-const userTasks = useCollection(tasksQuery);
+
+const displayTasks = await getUserTasks();
+
+const newTask = async () => {
+  await createTask({
+    frequency: "daily",
+    name: "test",
+    icon: "",
+    last_completed_time: Date.now(),
+    current_streak: 0,
+    xp: 10,
+  });
+};
+
+const setName = (task: Task, value: string) => {
+  task.name = value;
+  // (task as any).dirty = true;
+};
+
+const setFrequency = (task: Task) => {
+  task.frequency = task.frequency === "daily" ? "monthly" : "daily";
+  // (task as any).dirty = true;
+};
+
+const setXp = (task: Task, value: number) => {
+  task.xp = value;
+  // (task as any).dirty = true;
+};
+
+const setChecked = (task: Task, value: string) => {
+  if (value === "on") {
+    task.last_completed_time = Date.now();
+  }
+  // (task as any).dirty = true;
+};
+
+const calculateTaskCompleted = (time: number, taskFrequency: Task["frequency"]) => {
+  switch (taskFrequency) {
+    case "daily":
+      const secondsInDay = 60 * 60 * 24;
+      return Math.abs(Date.now() - time) > secondsInDay;
+    case "monthly":
+      const secondsInMonth = 60 * 60 * 24 * 30;
+      return Math.abs(Date.now() - time) > secondsInMonth;
+  }
+};
+
+const updateTaskData = (task: Task) => {
+  const id = (task as any).id;
+  updateTask(id, task)
+    .then(() => {
+      if (calculateTaskCompleted(task.last_completed_time, task.frequency)) {
+        markTaskComplete(id);
+      }
+    })
+    .then(() => {
+      // (task as any).dirty = false;
+    });
+};
 
 // mock data for testing
-const mockTasks = [
-  { id: "1", name: "Morning workout", frequency: "Daily", xp: 50, completed: true },
-  { id: "2", name: "Read for 30 minutes", frequency: "Daily", xp: 30, completed: false },
-  { id: "3", name: "Weekly review", frequency: "Weekly", xp: 100, completed: true },
-];
+// const mockTasks = [
+//   { id: "1", name: "Morning workout", frequency: "Daily", xp: 50, completed: true },
+//   { id: "2", name: "Read for 30 minutes", frequency: "Daily", xp: 30, completed: false },
+//   { id: "3", name: "Weekly review", frequency: "Weekly", xp: 100, completed: true },
+// ];
 
 // show real tasks if available, otherwise show mock data
-const displayTasks = computed(() => (userTasks.value?.length ? userTasks.value : mockTasks));
+// const displayTasks = computed(() => (userTasks.value?.length ? userTasks.value : mockTasks));
 
 // format current date for display
 const currentDate = computed(() =>
@@ -41,9 +94,9 @@ const contributions = computed(() => {
   const totalWeeks = Math.ceil((today.getTime() - startDate.getTime()) / millisecondsPerWeek);
 
   // build contribution grid
-  const monthsData: any[] = [];
+  const monthsData = [];
   let currentMonthLabel = "";
-  let currentMonthWeeks: any[] = [];
+  let currentMonthWeeks = [];
 
   for (let weekIndex = 0; weekIndex < totalWeeks; weekIndex++) {
     // calc start of this week
@@ -140,14 +193,42 @@ const getCellColor = (percent: number) => {
           </div>
         </div>
       </div>
-
-      <h2>Your tasks</h2>
+      <div class="header-flex">
+        <h2>Your tasks</h2>
+        <i @click="newTask()" class="fa-solid fa-circle-plus icon-button-new"></i>
+      </div>
       <div class="tasks">
         <div v-for="task in displayTasks" :key="task.id" class="task">
-          <input type="checkbox" :checked="task.completed" />
-          <span class="name">{{ task.name }}</span>
-          <span class="freq">{{ task.frequency }}</span>
-          <span class="xp">{{ task.xp }} XP</span>
+          <input
+            @change="(event) => setChecked(task as any, (event.target as any).value)"
+            type="checkbox"
+            :checked="true"
+          />
+          <input
+            @change="(event) => setName(task as any, (event.target as any).value)"
+            type="text"
+            :value="task.name"
+            class="name"
+          />
+          <span @click="setFrequency(task as any)" class="freq">{{ task.frequency }}</span>
+          <input
+            @change="(event) => setXp(task as any, (event.target as any).value)"
+            min="0"
+            max="20"
+            type="number"
+            :value="task.xp"
+            class="xp"
+          />
+          <div class="save-icon-wrapper">
+            <!-- <i
+              @click="updateTaskData(task as any)"
+              :class="`fa-solid fa-circle-check icon-button-save ${task.dirty !== undefined && task.dirty ? '' : 'hidden'}`"
+            ></i> -->
+            <i
+              @click="updateTaskData(task as any)"
+              class="fa-solid fa-circle-check icon-button-save"
+            ></i>
+          </div>
         </div>
       </div>
     </div>
@@ -160,6 +241,46 @@ const getCellColor = (percent: number) => {
   background-color: var(--background-color);
 }
 
+.hidden {
+  display: none;
+}
+
+.save-icon-wrapper {
+  position: relative;
+  height: 100%;
+}
+
+.icon-button-new,
+.icon-button-save {
+  color: var(--accent-color-primary);
+}
+
+.icon-button-new {
+  font-size: 2.5rem;
+}
+
+.icon-button-save {
+  position: absolute;
+  bottom: 1rem;
+}
+
+.icon-button:hover,
+.save-icon-wrapper:hover {
+  cursor: pointer;
+}
+
+.header-flex {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 1rem;
+}
+
+.header-flex button {
+  height: 75%;
+}
+
 .container {
   padding: 2rem 1rem 1rem;
   max-width: 600px;
@@ -167,9 +288,8 @@ const getCellColor = (percent: number) => {
 }
 
 h2 {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   color: var(--accent-color-quaternary);
-  margin: 0 0 1rem;
 }
 
 .card {
@@ -210,6 +330,10 @@ h2 {
   flex: 1;
 }
 
+input[type="checkbox"] {
+  accent-color: var(--accent-color-primary);
+}
+
 .calendar {
   display: grid;
   grid-auto-flow: column;
@@ -232,9 +356,11 @@ h2 {
   &.low {
     background: var(--accent-color-tertiary);
   }
+
   &.mid {
     background: var(--accent-color-secondary);
   }
+
   &.high {
     background: var(--accent-color-primary);
   }
@@ -254,6 +380,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+  padding-bottom: 10rem;
 }
 
 .task {
@@ -268,6 +395,7 @@ h2 {
     flex: 1;
     font-weight: 500;
   }
+
   .freq {
     font-size: 0.8rem;
     color: #666;
@@ -275,6 +403,7 @@ h2 {
     background: #f5f5f5;
     border-radius: 4px;
   }
+
   .xp {
     font-weight: bold;
     color: var(--accent-color-primary);
