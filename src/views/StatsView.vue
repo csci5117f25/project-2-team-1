@@ -54,7 +54,7 @@ const calculateTaskCompleted = (time: number, taskFrequency: Task["frequency"]) 
 };
 
 const updateTaskData = (task: Task) => {
-  const id = (task as (Task & {id : string})).id;
+  const id = (task as Task & { id: string }).id;
   updateTask(id, task)
     .then(() => {
       if (calculateTaskCompleted(task.last_completed_time, task.frequency)) {
@@ -139,9 +139,10 @@ const contributions = computed(() => {
 
 const getCellColor = (percent: number) => {
   if (percent === 0) return "";
-  if (percent <= 33) return "low";
-  if (percent <= 66) return "mid";
-  return "high";
+  if (percent <= 25) return "low";
+  if (percent <= 50) return "mid";
+  if (percent <= 75) return "high";
+  return "highest";
 };
 </script>
 
@@ -356,13 +357,14 @@ input[type="checkbox"] {
   &.low {
     background: var(--accent-color-tertiary);
   }
-
   &.mid {
     background: var(--accent-color-secondary);
   }
-
   &.high {
     background: var(--accent-color-primary);
+  }
+  &.highest {
+    background: var(--accent-color-quaternary);
   }
 }
 
