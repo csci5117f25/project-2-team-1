@@ -43,11 +43,11 @@ function handleClose() {
   emit("close");
 }
 
-function handleComplete() {
-  if (props.task) {
-    emit("complete", props.task.id);
-  }
-}
+// function handleComplete() {
+//   if (props.task) {
+//     emit("complete", props.task.id);
+//   }
+// }
 
 // Close on background click
 function handleBackgroundClick(event: MouseEvent) {

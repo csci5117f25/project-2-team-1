@@ -20,11 +20,8 @@ function createSampleTask() {
   });
 }
 
-function openTaskModal(task: any) {
-  selectedTask.value = {
-    ...task,
-    id: task.id,
-  };
+function openTaskModal(task: Task & { id: string }) {
+  selectedTask.value = { ...task };
   isModalOpen.value = true;
 }
 
@@ -63,7 +60,9 @@ function handleComplete(taskId: string) {
   <div>
     <Navbar />
     <div v-for="task in data" :key="task.id">
-      <p @click="openTaskModal(task)" style="cursor: pointer">{{ task.name }}</p>
+      <p @click="openTaskModal(task as Task & { id: string })" style="cursor: pointer">
+        {{ task.name }}
+      </p>
     </div>
 
     <button @click="createSampleTask">Create Sample Task</button>
