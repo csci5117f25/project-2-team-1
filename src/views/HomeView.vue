@@ -1,7 +1,13 @@
 <script lang="ts" setup>
+import { ref } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
+import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
 import { getUserTasks, createTask } from "@/database/database";
+import type Task from "@/interfaces/Task";
+
 const data = await getUserTasks();
+const selectedTask = ref<(Task & { id: string }) | null>(null);
+const isModalOpen = ref(false);
 
 function createSampleTask() {
   createTask({
@@ -13,15 +19,62 @@ function createSampleTask() {
     xp: 10,
   });
 }
+
+function openTaskModal(task: Task & { id: string }) {
+  selectedTask.value = { ...task };
+  isModalOpen.value = true;
+}
+
+function closeModal() {
+  isModalOpen.value = false;
+  selectedTask.value = null;
+}
+
+function handleSave(updatedTask: Task & { id: string }) {
+  console.log("Saving task:", updatedTask);
+  // TODO: Implement
+  closeModal();
+}
+
+function handleDelete(taskId: string) {
+  console.log("Deleting task:", taskId);
+  // TODO: implement
+  closeModal();
+}
+
+function handleComplete(taskId: string) {
+  console.log("Completing task:", taskId);
+  // TODO: Implement
+
+  // wait for cursor to leave button, then wait a moment before closing
+  // for feedback/chance for user to undo complete
+  // or on mobile just after a brief pause (again for time to undo if needed)
+
+  // temp
+  setTimeout(() => {
+    closeModal();
+  }, 1000);
+}
 </script>
 <template>
   <div>
     <Navbar />
     <div v-for="task in data" :key="task.id">
-      <p>{{ task.name }}</p>
+      <p @click="openTaskModal(task as Task & { id: string })" style="cursor: pointer">
+        {{ task.name }}
+      </p>
     </div>
 
     <button @click="createSampleTask">Create Sample Task</button>
+
+    <TaskDetailsModal
+      :task="selectedTask"
+      :isOpen="isModalOpen"
+      @close="closeModal"
+      @save="handleSave"
+      @delete="handleDelete"
+      @complete="handleComplete"
+    />
   </div>
 </template>
 
