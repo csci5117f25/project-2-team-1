@@ -54,7 +54,7 @@ const calculateTaskCompleted = (time: number, taskFrequency: Task["frequency"]) 
 };
 
 const updateTaskData = (task: Task) => {
-  const id = (task as any).id;
+  const id = (task as (Task & {id : string})).id;
   updateTask(id, task)
     .then(() => {
       if (calculateTaskCompleted(task.last_completed_time, task.frequency)) {

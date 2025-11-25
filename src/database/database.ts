@@ -9,7 +9,7 @@ import type CompletedTask from "@/interfaces/CompletedTask";
 export const getUserTasks = async () => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    const reference = collection(db, currentUser.uid, "tasks", "user_defined_tasks");
+    const reference = collection(db, "users", currentUser.uid, "tasks", "user_defined_tasks");
     const sortedData = useCollection(query(reference, orderBy("last_completed_time", "desc")));
     return sortedData;
   }
@@ -20,7 +20,7 @@ export const getUserTask = async (taskId: string) => {
   if (currentUser) {
     const router = useRouter();
     const dataSource = computed(() =>
-      doc(db, currentUser.uid, "tasks", "user_defined_tasks", taskId)
+      doc(db, "users", currentUser.uid, "tasks", "user_defined_tasks", taskId)
     );
 
     const reference = useDocument(dataSource);
@@ -38,7 +38,7 @@ export const getUserTask = async (taskId: string) => {
 export const createTask = async (data: Task) => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    return await addDoc(collection(db, currentUser.uid, "tasks", "user_defined_tasks"), data);
+    return await addDoc(collection(db, "users", currentUser.uid, "tasks", "user_defined_tasks"), data);
   }
 };
 
@@ -48,7 +48,7 @@ export const updateTask = async (
 ) => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    const reference = doc(db, currentUser.uid, "tasks", "user_defined_tasks", id);
+    const reference = doc(db, "users", currentUser.uid, "tasks", "user_defined_tasks", id);
     await updateDoc(reference, data);
   }
 };
@@ -65,7 +65,7 @@ export const markTaskComplete = async (id: string) => {
       days_completed: streak,
     };
     return await addDoc(
-      collection(db, currentUser.uid, "tasks", "completed_tasks"),
+      collection(db, "users", currentUser.uid, "tasks", "completed_tasks"),
       completedTaskData
     );
   }
