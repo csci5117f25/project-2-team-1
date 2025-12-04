@@ -69,15 +69,23 @@ export const markTaskComplete = async (id: string) => {
     updateTask(id, {
       last_completed_time: Date.now(),
     });
-    const streak = (await getUserTask(id))?.current_streak ?? 0;
+    const task = await getUserTask(id);
+    const streak = task?.current_streak ?? 0;
     const completedTaskData: CompletedTask = {
       parent_id: id,
       days_completed: streak,
     };
-    return await addDoc(
+    await addDoc(
       collection(db, "users", currentUser.uid, "completed_tasks"),
       completedTaskData
     );
+    const reference = doc(db, "users", currentUser.uid, "stats");
+    const data: any = useDocument(reference);
+    return await updateDoc(reference, {
+      xp: data.xp + (
+        task?.frequency === "daily" ? 5 : 50
+      )
+    });
   }
 };
 

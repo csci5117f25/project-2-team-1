@@ -30,11 +30,6 @@ const setFrequency = (task: Task) => {
   // (task as any).dirty = true;
 };
 
-const setXp = (task: Task, value: number) => {
-  task.xp = value;
-  // (task as any).dirty = true;
-};
-
 const setChecked = (task: Task, value: string) => {
   if (value === "on") {
     task.last_completed_time = Date.now();
@@ -212,14 +207,7 @@ const getCellColor = (percent: number) => {
             class="name"
           />
           <span @click="setFrequency(task as any)" class="freq">{{ task.frequency }}</span>
-          <input
-            @change="(event) => setXp(task as any, (event.target as any).value)"
-            min="0"
-            max="20"
-            type="number"
-            :value="task.xp"
-            class="xp"
-          />
+
           <div class="save-icon-wrapper">
             <!-- <i
               @click="updateTaskData(task as any)"
