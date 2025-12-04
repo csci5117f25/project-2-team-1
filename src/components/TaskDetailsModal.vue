@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import type Task from "@/interfaces/Task";
 
 const props = defineProps<{
   task: (Task & { id: string }) | null; // firestore documents will include ids
   isOpen: boolean;
+  tasks?: (Task & { id: string })[]; // all tasks for navigation
 }>();
 
 const emit = defineEmits<{
@@ -12,17 +13,28 @@ const emit = defineEmits<{
   save: [task: Task & { id: string }];
   delete: [taskId: string];
   complete: [taskId: string];
+  navigate: [task: Task & { id: string }];
 }>();
 
 const editedTask = ref<(Task & { id: string }) | null>(null);
 const isCompleting = ref(false);
+const slideDirection = ref<"left" | "right" | null>(null);
+const isSlidingOut = ref(false);
 
 // watch for changes to task to update editedTask accordingly
 watch(
   () => props.task,
   (newTask) => {
-    editedTask.value = newTask ? { ...newTask } : null;
-    isCompleting.value = false;
+    if (isSlidingOut.value) {
+      editedTask.value = newTask ? { ...newTask } : null;
+      isCompleting.value = false;
+      isSlidingOut.value = false;
+      setTimeout(() => (slideDirection.value = null), 150);
+    } else {
+      editedTask.value = newTask ? { ...newTask } : null;
+      isCompleting.value = false;
+      slideDirection.value = null;
+    }
   },
   { immediate: true }
 );
@@ -62,6 +74,47 @@ function handleKeydown(event: KeyboardEvent) {
     handleClose();
   }
 }
+
+// Helpers for navigating left + right between tasks
+const currentTaskIndex = computed(() => {
+  if (!props.task || !props.tasks || props.tasks.length === 0) {
+    return -1;
+  }
+  console.log(props.task!.id);
+  return props.tasks.findIndex((t) => t.id === props.task!.id);
+});
+
+const hasPreviousTask = computed(() => {
+  return currentTaskIndex.value > 0;
+});
+
+const hasNextTask = computed(() => {
+  return (
+    currentTaskIndex.value >= 0 && props.tasks && currentTaskIndex.value < props.tasks.length - 1
+  );
+});
+
+function handlePreviousTask() {
+  if (hasPreviousTask.value && props.tasks) {
+    slideDirection.value = "left";
+    isSlidingOut.value = true;
+    const prevTask = props.tasks[currentTaskIndex.value - 1];
+    if (prevTask) {
+      setTimeout(() => emit("navigate", prevTask), 150);
+    }
+  }
+}
+
+function handleNextTask() {
+  if (hasNextTask.value && props.tasks) {
+    slideDirection.value = "right";
+    isSlidingOut.value = true;
+    const nextTask = props.tasks[currentTaskIndex.value + 1];
+    if (nextTask) {
+      setTimeout(() => emit("navigate", nextTask), 150);
+    }
+  }
+}
 </script>
 
 <template>
@@ -71,7 +124,24 @@ function handleKeydown(event: KeyboardEvent) {
     @click="handleBackgroundClick"
     @keydown="handleKeydown"
   >
-    <div class="modal-content">
+    <button
+      v-if="hasPreviousTask"
+      class="nav-arrow nav-arrow-left"
+      @click.stop="handlePreviousTask"
+    >
+      <!-- https://www.compart.com/en/unicode/U+2039 -->
+      &#8249;
+    </button>
+    <div
+      class="modal-content"
+      :key="props.task?.id"
+      :class="{
+        'slide-out-left': slideDirection === 'right' && isSlidingOut,
+        'slide-out-right': slideDirection === 'left' && isSlidingOut,
+        'slide-in-left': slideDirection === 'left' && !isSlidingOut,
+        'slide-in-right': slideDirection === 'right' && !isSlidingOut,
+      }"
+    >
       <div class="modal-header">
         <h2>Task Details</h2>
         <button class="close-btn" @click="handleClose">
@@ -156,6 +226,10 @@ function handleKeydown(event: KeyboardEvent) {
         </div>
       </div>
     </div>
+    <button v-if="hasNextTask" class="nav-arrow nav-arrow-right" @click.stop="handleNextTask">
+      <!-- https://www.compart.com/en/unicode/U+203A -->
+      &#8250;
+    </button>
   </div>
 </template>
 
@@ -174,6 +248,60 @@ function handleKeydown(event: KeyboardEvent) {
   backdrop-filter: blur(2px);
 }
 
+.nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: white;
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  font-size: 32px;
+  color: var(--accent-color-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s;
+  z-index: 1001;
+
+  &:hover {
+    background: var(--accent-color-primary);
+    color: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  }
+
+  &:active {
+    transform: translateY(-50%) scale(0.95);
+  }
+
+  &.nav-arrow-left {
+    left: calc(50% - 300px - 70px);
+  }
+
+  &.nav-arrow-right {
+    left: calc(50% + 300px + 20px);
+  }
+}
+
+@media (max-width: 750px) {
+  .nav-arrow {
+    top: auto;
+    bottom: 50px;
+    transform: none;
+  }
+
+  .nav-arrow.nav-arrow-left {
+    left: calc(50% - 70px);
+  }
+
+  .nav-arrow.nav-arrow-right {
+    left: calc(50% + 20px);
+  }
+}
+
 .modal-content {
   background: white;
   border-radius: 12px;
@@ -183,6 +311,49 @@ function handleKeydown(event: KeyboardEvent) {
   display: flex;
   flex-direction: column;
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+
+  &.slide-out-left {
+    transform: translateX(-80px);
+    opacity: 0;
+  }
+
+  &.slide-out-right {
+    transform: translateX(80px);
+    opacity: 0;
+  }
+
+  &.slide-in-left {
+    animation: slideInFromLeft 0.15s ease forwards;
+  }
+
+  &.slide-in-right {
+    animation: slideInFromRight 0.15s ease forwards;
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-80px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(80px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .modal-header {

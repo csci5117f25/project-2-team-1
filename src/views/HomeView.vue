@@ -21,8 +21,12 @@ function createSampleTask() {
 }
 
 function openTaskModal(task: Task & { id: string }) {
-  selectedTask.value = { ...task };
+  selectedTask.value = { ...task, id: task.id };
   isModalOpen.value = true;
+}
+
+function handleNavigate(task: Task & { id: string }) {
+  selectedTask.value = { ...task, id: task.id };
 }
 
 function closeModal() {
@@ -70,10 +74,12 @@ function handleComplete(taskId: string) {
     <TaskDetailsModal
       :task="selectedTask"
       :isOpen="isModalOpen"
+      :tasks="data as (Task & { id: string })[]"
       @close="closeModal"
       @save="handleSave"
       @delete="handleDelete"
       @complete="handleComplete"
+      @navigate="handleNavigate"
     />
   </div>
 </template>
