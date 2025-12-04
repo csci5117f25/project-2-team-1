@@ -83,7 +83,7 @@ export const markTaskComplete = async (id: string) => {
     const data: any = useDocument(reference);
     return await updateDoc(reference, {
       xp: data.xp + (
-        task?.frequency === "daily" ? 5 : 50
+        task?.frequency === "daily" ? 10 : 50
       )
     });
   }
