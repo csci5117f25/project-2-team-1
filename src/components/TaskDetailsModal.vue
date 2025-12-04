@@ -286,6 +286,22 @@ function handleNextTask() {
   }
 }
 
+@media (max-width: 750px) {
+  .nav-arrow {
+    top: auto;
+    bottom: 50px;
+    transform: none;
+  }
+
+  .nav-arrow.nav-arrow-left {
+    left: calc(50% - 70px);
+  }
+
+  .nav-arrow.nav-arrow-right {
+    left: calc(50% + 20px);
+  }
+}
+
 .modal-content {
   background: white;
   border-radius: 12px;
