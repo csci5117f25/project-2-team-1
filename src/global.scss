@@ -26,10 +26,21 @@ main {
   min-height: 100vh;
 }
 
+h2 {
+  font-size: 1.5rem;
+  color: var(--accent-color-quaternary);
+}
+
 .height-100-div {
   height: 100%;
 }
 
 a {
   text-decoration: none;
+}
+
+.mobile-container {
+  padding: 2rem 1rem 1rem;
+  max-width: 600px;
+  margin: 0 auto;
 }

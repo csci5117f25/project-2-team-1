@@ -149,7 +149,7 @@ const getCellColor = (percent: number) => {
 <template>
   <div class="stats-view">
     <Navbar />
-    <div class="container">
+    <div class="mobile-container">
       <h2>{{ currentDate }}</h2>
       <div class="card">
         <div class="months">
@@ -280,17 +280,6 @@ const getCellColor = (percent: number) => {
 
 .header-flex button {
   height: 75%;
-}
-
-.container {
-  padding: 2rem 1rem 1rem;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-h2 {
-  font-size: 1.5rem;
-  color: var(--accent-color-quaternary);
 }
 
 .card {
