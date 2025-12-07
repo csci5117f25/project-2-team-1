@@ -75,16 +75,11 @@ export const markTaskComplete = async (id: string) => {
       parent_id: id,
       days_completed: streak,
     };
-    await addDoc(
-      collection(db, "users", currentUser.uid, "completed_tasks"),
-      completedTaskData
-    );
+    await addDoc(collection(db, "users", currentUser.uid, "completed_tasks"), completedTaskData);
     const reference = doc(db, "users", currentUser.uid, "stats");
     const data: any = useDocument(reference);
     return await updateDoc(reference, {
-      xp: data.xp + (
-        task?.frequency === "daily" ? 10 : 50
-      )
+      xp: data.xp + (task?.frequency === "daily" ? 10 : 50),
     });
   }
 };
@@ -138,4 +133,32 @@ export const deleteAccount = async () => {
   } catch (error) {
     console.error(`could not delete account: ${error}`);
   }
+};
+
+export const saveNotificationToken = async (token: string) => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return;
+  }
+
+  const reference = doc(db, "users", currentUser.uid, "notification_tokens", token);
+  await setDoc(
+    reference,
+    {
+      token,
+      platform: "web",
+      updatedAt: Date.now(),
+    },
+    { merge: true }
+  );
+};
+
+export const removeNotificationToken = async (token: string) => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return;
+  }
+
+  const reference = doc(db, "users", currentUser.uid, "notification_tokens", token);
+  await deleteDoc(reference);
 };
