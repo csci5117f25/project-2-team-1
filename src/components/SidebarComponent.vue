@@ -46,7 +46,7 @@ async function logout() {
         </svg>
       </button>
       <div class="main-links">
-        <router-link v-for="page in pages" :to="page.link" :key="page.name">
+        <router-link v-for="page in pages" :to="page.link" :key="page.name" @click="emit('closeSidebar')">
           {{ page.name }}
         </router-link>
       </div>
