@@ -189,6 +189,9 @@ const getCellColor = (percent: number) => {
           </div>
         </div>
       </div>
+      <div>
+        your total xp and rank
+      </div>
       <div class="header-flex">
         <h2>Your tasks</h2>
         <i @click="newTask()" class="fa-solid fa-circle-plus icon-button-new"></i>
