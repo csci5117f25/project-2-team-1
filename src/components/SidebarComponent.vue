@@ -79,6 +79,7 @@ a {
   position: fixed;
   top: 0;
   right: 0;
+  z-index: 100;
   background-color: var(--accent-color-secondary);
   width: 24rem;
   height: 100vh;
