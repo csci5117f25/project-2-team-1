@@ -1,223 +1,224 @@
 <script setup lang="ts">
-import { computed } from "vue";
-
+import { computed, ref, watch, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
-import { getUserTasks, createTask, updateTask, markTaskComplete } from "@/database/database";
+import ContributionGraph from "@/components/ContributionGraph.vue";
+import { createTask, updateTask, markTaskComplete } from "@/database/database";
 import type Task from "@/interfaces/Task";
+import { collection, doc, orderBy, query } from "firebase/firestore";
+import { useCollection, useDocument, useCurrentUser } from "vuefire";
+import { db } from "../../firebase_conf";
 
-// fetch user's tasks from firestore
+const displayTasks = ref<(Task & { id: string })[]>([]);
+const isLoading = ref(true);
+const draftTask = ref<Task | null>(null);
+const draftInput = ref<HTMLInputElement | null>(null);
 
-const displayTasks = await getUserTasks();
+const user = useCurrentUser();
 
-const newTask = async () => {
-  await createTask({
-    frequency: "daily",
-    name: "",
-    icon: "",
-    last_completed_time: 0,
-    current_streak: 0,
-    xp: 10,
-  });
-};
-
-const setName = (task: Task, value: string) => {
-  task.name = value;
-  // (task as any).dirty = true;
-};
-
-const setFrequency = (task: Task) => {
-  task.frequency = task.frequency === "daily" ? "monthly" : "daily";
-  // (task as any).dirty = true;
-};
-
-const setChecked = (task: Task, value: string) => {
-  if (value === "on") {
-    task.last_completed_time = Date.now();
-  }
-  // (task as any).dirty = true;
-};
-
-const calculateTaskCompleted = (time: number, taskFrequency: Task["frequency"]) => {
-  switch (taskFrequency) {
-    case "daily":
-      const secondsInDay = 60 * 60 * 24;
-      return Math.abs(Date.now() - time) > secondsInDay;
-    case "monthly":
-      const secondsInMonth = 60 * 60 * 24 * 30;
-      return Math.abs(Date.now() - time) > secondsInMonth;
-  }
-};
-
-const updateTaskData = (task: Task) => {
-  const id = (task as Task & { id: string }).id;
-  updateTask(id, task)
-    .then(() => {
-      if (calculateTaskCompleted(task.last_completed_time, task.frequency)) {
-        markTaskComplete(id);
-      }
-    })
-    .then(() => {
-      // (task as any).dirty = false;
-    });
-};
-
-// mock data for testing
-// const mockTasks = [
-//   { id: "1", name: "Morning workout", frequency: "Daily", xp: 50, completed: true },
-//   { id: "2", name: "Read for 30 minutes", frequency: "Daily", xp: 30, completed: false },
-//   { id: "3", name: "Weekly review", frequency: "Weekly", xp: 100, completed: true },
-// ];
-
-// show real tasks if available, otherwise show mock data
-// const displayTasks = computed(() => (userTasks.value?.length ? userTasks.value : mockTasks));
-
-// format current date for display
-const currentDate = computed(() =>
-  new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
-);
-
-const contributions = computed(() => {
-  const today = new Date();
-
-  // calc start date
-  const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-  const startDate = new Date(sixMonthsAgo);
-  startDate.setDate(startDate.getDate() - startDate.getDay());
-
-  // calc total number weeks to display
-  const millisecondsPerWeek = 7 * 24 * 60 * 60 * 1000;
-  const totalWeeks = Math.ceil((today.getTime() - startDate.getTime()) / millisecondsPerWeek);
-
-  // build contribution grid
-  const monthsData = [];
-  let currentMonthLabel = "";
-  let currentMonthWeeks = [];
-
-  for (let weekIndex = 0; weekIndex < totalWeeks; weekIndex++) {
-    // calc start of this week
-    const weekStartDate = new Date(startDate.getTime() + weekIndex * millisecondsPerWeek);
-    const monthLabel = weekStartDate.toLocaleDateString("en-US", { month: "short" });
-
-    // create 7 days for this week (random for now lol)
-    const weekDays = Array.from({ length: 7 }, (_, dayIndex) => {
-      const dayDate = new Date(weekStartDate.getTime() + dayIndex * 24 * 60 * 60 * 1000);
-      const randomActivity = Math.random() > 0.7 ? Math.floor(Math.random() * 100) : 0;
-
-      return {
-        date: dayDate,
-        completionPercent: randomActivity,
-      };
-    });
-
-    // when month changes, save previous month's data
-    if (monthLabel !== currentMonthLabel && weekIndex > 0) {
-      monthsData.push({
-        month: currentMonthLabel,
-        weeks: currentMonthWeeks,
-      });
-      currentMonthWeeks = [];
-    }
-
-    currentMonthLabel = monthLabel;
-    currentMonthWeeks.push(weekDays);
-  }
-
-  // push last month's data
-  if (currentMonthWeeks.length) {
-    monthsData.push({
-      month: currentMonthLabel,
-      weeks: currentMonthWeeks,
-    });
-  }
-  return monthsData;
+// reactive refs so they cant be imported from db.ts
+const tasksQuery = computed(() => {
+  if (!user.value) return null;
+  const ref = collection(db, "users", user.value.uid, "user_defined_tasks");
+  return query(ref, orderBy("last_completed_time", "desc"));
 });
 
-const getCellColor = (percent: number) => {
-  if (percent === 0) return "";
-  if (percent <= 25) return "low";
-  if (percent <= 50) return "mid";
-  if (percent <= 75) return "high";
-  return "highest";
+const statsDocRef = computed(() => {
+  if (!user.value) return null;
+  return doc(db, "users", user.value.uid, "stats", "current");
+});
+
+const tasksRef = useCollection(tasksQuery);
+const statsRef = useDocument<{ xp: number }>(statsDocRef);
+
+// watch to update list when new task
+watch(
+  tasksRef,
+  (newTasks) => {
+    if (newTasks) {
+      const allTasks = newTasks as (Task & { id: string })[];
+      displayTasks.value = allTasks.filter((t) => t.name?.trim());
+      isLoading.value = false;
+    }
+  },
+  { immediate: true }
+);
+
+// leveling calculations
+const currentXP = computed(() => statsRef.value?.xp || 0);
+const currentLevel = computed(() => Math.floor(currentXP.value / 100) + 1);
+const xpForNextLevel = computed(() => currentLevel.value * 100);
+const progressPercent = computed(() => currentXP.value % 100);
+
+const toggleTaskCreation = async () => {
+  if (draftTask.value) {
+    draftTask.value = null;
+  } else {
+    draftTask.value = {
+      frequency: "daily",
+      name: "",
+      icon: "📝",
+      last_completed_time: 0,
+      current_streak: 0,
+      xp: 10,
+    };
+    await nextTick();
+    draftInput.value?.focus();
+  }
+};
+
+const saveDraft = async () => {
+  if (!draftTask.value?.name.trim()) return;
+  await createTask(draftTask.value);
+  draftTask.value = null;
+};
+
+const cycleDraftFrequency = () => {
+  if (draftTask.value) {
+    draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
+  }
+};
+
+const updateTaskName = (task: Task & { id: string }, newName: string) => {
+  updateTask(task.id, { name: newName });
+};
+
+const cycleFrequency = (task: Task & { id: string }) => {
+  const next = task.frequency === "daily" ? "monthly" : "daily";
+  updateTask(task.id, { frequency: next });
+};
+
+const handleCheck = (task: Task & { id: string }, isChecked: boolean) => {
+  if (isChecked) {
+    markTaskComplete(task.id);
+  }
+};
+
+const currentDateDisplay = computed(() => {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+});
+
+// check if task completed based on frequency
+const isCompletedToday = (task: Task) => {
+  if (!task.last_completed_time) return false;
+  const last = new Date(task.last_completed_time);
+  const now = new Date();
+
+  const isSameDay =
+    last.getDate() === now.getDate() &&
+    last.getMonth() === now.getMonth() &&
+    last.getFullYear() === now.getFullYear();
+
+  const isSameMonth =
+    last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear();
+
+  if (task.frequency === "daily") return isSameDay;
+  if (task.frequency === "monthly") return isSameMonth;
+  return false;
 };
 </script>
 
 <template>
-  <div class="stats-view">
+  <div class="page-wrapper">
     <Navbar />
-    <div class="mobile-container">
-      <h2>{{ currentDate }}</h2>
-      <div class="card">
-        <div class="months">
-          <div
-            v-for="(monthData, index) in contributions"
-            :key="index"
-            :style="{ gridColumn: `span ${monthData.weeks.length}` }"
-          >
-            {{ monthData.month }}
+
+    <div class="content-container">
+      <h1 class="date-header">{{ currentDateDisplay }}</h1>
+
+      <div class="card stats-card">
+        <div class="stats-header">
+          <div class="level-badge">
+            <span class="level-label">Level</span>
+            <span class="level-number">{{ currentLevel }}</span>
+          </div>
+          <div class="xp-text">
+            <strong>{{ currentXP }}</strong> <span class="muted">/ {{ xpForNextLevel }} XP</span>
           </div>
         </div>
-        <div class="chart">
-          <div class="labels">
-            <span style="top: 11px">Mon</span>
-            <span style="top: 37px">Wed</span>
-            <span style="top: 63px">Fri</span>
-          </div>
-
-          <div class="calendar-container">
-            <div class="calendar">
-              <template v-for="(monthData, monthIndex) in contributions" :key="monthIndex">
-                <div v-for="(weekDays, weekIndex) in monthData.weeks" :key="weekIndex" class="week">
-                  <div
-                    v-for="(day, dayIndex) in weekDays"
-                    :key="dayIndex"
-                    :class="['day', getCellColor(day.completionPercent)]"
-                    :title="`${day.date.toDateString()}: ${day.completionPercent}%`"
-                  ></div>
-                </div>
-              </template>
-            </div>
-
-            <div class="legend">
-              <span>Less</span>
-              <div class="day"></div>
-              <div class="day low"></div>
-              <div class="day mid"></div>
-              <div class="day high"></div>
-              <div class="day highest"></div>
-              <span>More</span>
-            </div>
-          </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" :style="{ width: `${progressPercent}%` }"></div>
         </div>
       </div>
-      <div class="header-flex">
-        <h2>Your tasks</h2>
-        <i @click="newTask()" class="fa-solid fa-circle-plus icon-button-new"></i>
-      </div>
-      <div class="tasks">
-        <div v-for="task in displayTasks" :key="task.id" class="task">
-          <input
-            @change="(event) => setChecked(task as any, (event.target as any).value)"
-            type="checkbox"
-            :checked="true"
-          />
-          <input
-            @change="(event) => setName(task as any, (event.target as any).value)"
-            type="text"
-            :value="task.name"
-            class="name"
-          />
-          <span @click="setFrequency(task as any)" class="freq">{{ task.frequency }}</span>
 
-          <div class="save-icon-wrapper">
-            <!-- <i
-              @click="updateTaskData(task as any)"
-              :class="`fa-solid fa-circle-check icon-button-save ${task.dirty !== undefined && task.dirty ? '' : 'hidden'}`"
-            ></i> -->
-            <i
-              @click="updateTaskData(task as any)"
-              class="fa-solid fa-circle-check icon-button-save"
-            ></i>
+      <div class="card graph-card">
+        <ContributionGraph />
+      </div>
+
+      <div class="section-header">
+        <h2>Your Tasks</h2>
+        <button
+          class="add-btn"
+          @click="toggleTaskCreation"
+          :class="{ 'cancel-mode': draftTask }"
+          aria-label="Add new task"
+        >
+          <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
+        </button>
+      </div>
+
+      <div v-if="isLoading" class="placeholder-state">
+        <p>Loading tasks...</p>
+        <!-- TODO: I really wanna do a skeleton here instead because the techshare inspired me -->
+      </div>
+
+      <div v-else class="task-list">
+        <div v-if="draftTask" class="task-card draft-card">
+          <div class="checkbox-container">
+            <button class="icon-btn save-btn" @click="saveDraft" title="Save Task">
+              <i class="fa-solid fa-check"></i>
+            </button>
           </div>
+
+          <div class="task-details">
+            <input
+              ref="draftInput"
+              class="task-name"
+              type="text"
+              v-model="draftTask.name"
+              placeholder="What do you need to do?"
+              @keydown.enter="saveDraft"
+              @keydown.esc="toggleTaskCreation"
+            />
+            <button class="freq-badge" @click="cycleDraftFrequency">
+              {{ draftTask.frequency }}
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-for="task in displayTasks"
+          :key="task.id"
+          class="task-card"
+          :class="{ completed: isCompletedToday(task) }"
+        >
+          <div class="checkbox-container">
+            <input
+              type="checkbox"
+              :checked="isCompletedToday(task)"
+              :disabled="isCompletedToday(task)"
+              @change="(e) => handleCheck(task, (e.target as HTMLInputElement).checked)"
+            />
+          </div>
+
+          <div class="task-details">
+            <input
+              class="task-name"
+              type="text"
+              :value="task.name"
+              placeholder="Task name..."
+              @input="(e) => updateTaskName(task, (e.target as HTMLInputElement).value)"
+            />
+            <button class="freq-badge" @click="cycleFrequency(task)">
+              {{ task.frequency }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="displayTasks.length === 0 && !draftTask" class="placeholder-state">
+          <p>No tasks yet. Create one to get started!</p>
         </div>
       </div>
     </div>
@@ -225,168 +226,247 @@ const getCellColor = (percent: number) => {
 </template>
 
 <style scoped lang="scss">
-.stats-view {
+.page-wrapper {
   min-height: 100vh;
   background-color: var(--background-color);
 }
 
-.hidden {
-  display: none;
+.content-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
 }
 
-.save-icon-wrapper {
-  position: relative;
-  height: 100%;
-}
-
-.icon-button-new,
-.icon-button-save {
+.date-header {
+  font-size: 1.5rem;
   color: var(--accent-color-primary);
-}
-
-.icon-button-new {
-  font-size: 2.5rem;
-}
-
-.icon-button-save {
-  position: absolute;
-  bottom: 1rem;
-}
-
-.icon-button:hover,
-.save-icon-wrapper:hover {
-  cursor: pointer;
-}
-
-.header-flex {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0 1rem;
-}
-
-.header-flex button {
-  height: 75%;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
 }
 
 .card {
   background: white;
+  border-radius: 12px;
   padding: 1.5rem;
-  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   margin-bottom: 2rem;
 }
 
-.months {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 13px;
-  gap: 3px;
-  margin: 0 0 4px 38px;
-  font-size: 0.7rem;
-  color: #666;
-}
-
-.chart {
-  display: flex;
-  gap: 8px;
-}
-
-.labels {
-  width: 30px;
-  font-size: 0.65rem;
-  color: #666;
-  position: relative;
-
-  span {
-    position: absolute;
-    right: 0;
-  }
-}
-
-.calendar-container {
-  flex: 1;
-}
-
-input[type="checkbox"] {
-  accent-color: var(--accent-color-primary);
-}
-
-.calendar {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 13px;
-  gap: 3px;
-}
-
-.week {
+.stats-card {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 1rem;
 }
 
-.day {
-  width: 10px;
-  height: 10px;
-  background: #ebedf0;
-  border-radius: 2px;
-
-  &.low {
-    background: var(--accent-color-tertiary);
-  }
-  &.mid {
-    background: var(--accent-color-secondary);
-  }
-  &.high {
-    background: var(--accent-color-primary);
-  }
-  &.highest {
-    background: var(--accent-color-quaternary);
-  }
-}
-
-.legend {
+.stats-header {
   display: flex;
-  align-items: center;
-  gap: 3px;
-  justify-content: flex-end;
-  font-size: 0.7rem;
-  color: #666;
-  margin-top: 0.75rem;
+  justify-content: space-between;
+  align-items: flex-end;
 }
 
-.tasks {
+.level-badge {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
-  padding-bottom: 10rem;
-}
-
-.task {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.9rem;
-  background: white;
-  border-radius: 8px;
-
-  .name {
-    flex: 1;
-    font-weight: 500;
+  .level-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
   }
-
-  .freq {
-    font-size: 0.8rem;
-    color: #666;
-    padding: 0.2rem 0.5rem;
-    background: #f5f5f5;
-    border-radius: 4px;
-  }
-
-  .xp {
-    font-weight: bold;
+  .level-number {
+    font-size: 2.5rem;
+    font-weight: 600;
+    line-height: 1;
     color: var(--accent-color-primary);
-    font-size: 0.9rem;
+  }
+}
+
+.xp-text {
+  font-size: 0.9rem;
+  color: #333;
+  .muted {
+    color: #999;
+  }
+}
+
+.progress-bar-container {
+  height: 12px;
+  background-color: #f0f0f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  // @mark i swear to god this is from the dome 😭 prog bar NEEDS it
+  background: linear-gradient(90deg, var(--accent-color-secondary), var(--accent-color-primary));
+  transition: width 0.3s ease;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  h2 {
+    font-size: 1.4rem;
+    color: var(--accent-color-quaternary);
+    margin: 0;
+  }
+}
+
+.add-btn {
+  background-color: var(--accent-color-primary);
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: var(--accent-color-quaternary);
+  }
+
+  &.cancel-mode {
+    background-color: #ed3c4b;
+    &:hover {
+      background-color: #df3e16;
+    }
+  }
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.task-card {
+  background: white;
+  padding: 1rem;
+  border-radius: 10px;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  &.completed {
+    background-color: #f8f9fa;
+    opacity: 0.85;
+    .task-name {
+      text-decoration: line-through;
+      color: #999;
+    }
+  }
+
+  &.draft-card {
+    border: 2px solid var(--accent-color-tertiary);
+  }
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+
+  input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent-color-primary);
+    cursor: pointer;
+  }
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1.1rem;
+
+  &.save-btn {
+    color: var(--accent-color-primary);
+    &:hover {
+      color: var(--accent-color-quaternary);
+    }
+  }
+}
+
+.task-details {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.task-name {
+  border: none;
+  font-size: 1rem;
+  font-family: inherit;
+  width: 100%;
+  background: transparent;
+  outline: none;
+  padding: 0.4rem 0.2rem;
+
+  &:focus {
+    border-bottom: 2px solid var(--accent-color-tertiary);
+  }
+}
+
+.freq-badge {
+  background: #f0f0f0;
+  border: none;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: #666;
+  text-transform: capitalize;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #e0e0e0;
+  }
+}
+
+.placeholder-state {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+  background: white;
+  border-radius: 10px;
+}
+
+@media (max-width: 480px) {
+  .date-header {
+    font-size: 1.2rem;
+  }
+  .task-card {
+    padding: 0.8rem;
+  }
+  .task-name {
+    font-size: 0.95rem;
+  }
+  .freq-badge {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.7rem;
   }
 }
 </style>
