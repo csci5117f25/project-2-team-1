@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, nextTick } from "vue";
 import type Task from "@/interfaces/Task";
 
 const props = defineProps<{
@@ -16,6 +16,7 @@ const emit = defineEmits<{
   navigate: [task: Task & { id: string }];
 }>();
 
+const overlayRef = ref<HTMLDivElement | null>(null);
 const editedTask = ref<(Task & { id: string }) | null>(null);
 const isCompleting = ref(false);
 const slideDirection = ref<"left" | "right" | null>(null);
@@ -37,6 +38,16 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => props.isOpen,
+  async (isOpen) => {
+    if (isOpen) {
+      await nextTick(); // waits until Vue has rendered modal
+      overlayRef.value?.focus();
+    }
+  }
 );
 
 function handleSave() {
@@ -120,7 +131,9 @@ function handleNextTask() {
 <template>
   <div
     v-if="isOpen && editedTask"
+    ref="overlayRef"
     class="modal-overlay"
+    tabindex="-1"
     @click="handleBackgroundClick"
     @keydown="handleKeydown"
   >
