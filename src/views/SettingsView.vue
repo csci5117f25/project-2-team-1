@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { deleteAccount, getUserSettings, updateUserSettings } from "@/database/database";
+import {
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+} from "@/notifications/pushNotifications";
 import { onMounted, ref, watch } from "vue";
 import { signOut } from "firebase/auth";
 import { useFirebaseAuth } from "vuefire";
@@ -10,14 +14,33 @@ import router from "@/router";
 
 const settingsLoaded = ref(false);
 const notificationsEnabled = ref(false);
+const syncingNotificationsToggle = ref(false);
 const isDeletePopupOpen = ref(false);
 
 const auth = useFirebaseAuth();
 
-watch(notificationsEnabled, async (newValue: boolean) => {
-  await updateUserSettings({
-    notifications: newValue,
-  });
+watch(notificationsEnabled, async (newValue: boolean, oldValue: boolean) => {
+  if (!settingsLoaded.value || syncingNotificationsToggle.value) {
+    return;
+  }
+
+  try {
+    if (newValue) {
+      await subscribeToPushNotifications();
+    } else {
+      await unsubscribeFromPushNotifications();
+    }
+
+    await updateUserSettings({
+      notifications: newValue,
+    });
+  } catch (error) {
+    console.error("Failed to toggle notifications", error);
+    // prevent UI from getting stuck in wrong state
+    syncingNotificationsToggle.value = true;
+    notificationsEnabled.value = oldValue;
+    syncingNotificationsToggle.value = false;
+  }
 });
 
 onMounted(async () => {
@@ -25,7 +48,13 @@ onMounted(async () => {
   const settings = await getUserSettings();
 
   if (settings?.notifications) {
-    notificationsEnabled.value = settings?.notifications;
+    notificationsEnabled.value = settings.notifications;
+
+    if (typeof window !== "undefined" && Notification.permission === "granted") {
+      subscribeToPushNotifications().catch((error) => {
+        console.error("Failed to subscribe to notifications", error);
+      });
+    }
   }
 
   settingsLoaded.value = true;

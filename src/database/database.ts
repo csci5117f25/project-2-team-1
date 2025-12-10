@@ -8,6 +8,7 @@ import {
   query,
   setDoc,
   updateDoc,
+  getDoc,
 } from "firebase/firestore";
 import { computed, watch } from "vue";
 import { getCurrentUser, useCollection, useDocument } from "vuefire";
@@ -66,7 +67,7 @@ export const updateTask = async (
 export const markTaskComplete = async (id: string) => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    updateTask(id, {
+    await updateTask(id, {
       last_completed_time: Date.now(),
     });
     const task = await getUserTask(id);
@@ -74,18 +75,30 @@ export const markTaskComplete = async (id: string) => {
     const completedTaskData: CompletedTask = {
       parent_id: id,
       days_completed: streak,
+      completed_at: Date.now(),
     };
-    await addDoc(
-      collection(db, "users", currentUser.uid, "completed_tasks"),
-      completedTaskData
+    await addDoc(collection(db, "users", currentUser.uid, "completed_tasks"), completedTaskData);
+
+    const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
+    const statsSnapshot = await getDoc(statsRef);
+    const currentXp = statsSnapshot.exists() ? statsSnapshot.data().xp : 0;
+    const xpReward = task?.frequency === "daily" ? 10 : 50;
+
+    return await setDoc(
+      statsRef,
+      {
+        xp: currentXp + xpReward,
+      },
+      { merge: true }
     );
-    const reference = doc(db, "users", currentUser.uid, "stats");
-    const data: any = useDocument(reference);
-    return await updateDoc(reference, {
-      xp: data.xp + (
-        task?.frequency === "daily" ? 10 : 50
-      )
-    });
+  }
+};
+
+export const getUserStats = async () => {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+    const reference = doc(db, "users", currentUser.uid, "stats", "current");
+    return useDocument(reference);
   }
 };
 
@@ -137,5 +150,48 @@ export const deleteAccount = async () => {
     }
   } catch (error) {
     console.error(`could not delete account: ${error}`);
+  }
+};
+
+export const saveNotificationToken = async (token: string) => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return;
+  }
+
+  const reference = doc(db, "users", currentUser.uid, "notification_tokens", token);
+  await setDoc(
+    reference,
+    {
+      token,
+      platform: "web",
+      updatedAt: Date.now(),
+    },
+    { merge: true }
+  );
+};
+
+export const removeNotificationToken = async (token: string) => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return;
+  }
+
+  const reference = doc(db, "users", currentUser.uid, "notification_tokens", token);
+  await deleteDoc(reference);
+};
+
+export const getCompletedTasks = async (taskId?: string) => {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+    const reference = collection(db, "users", currentUser.uid, "completed_tasks");
+    let q;
+    if (taskId) {
+      q = query(reference, orderBy("days_completed", "desc"));
+    } else {
+      q = query(reference, orderBy("days_completed", "desc"));
+    }
+    const completedTasks = useCollection<CompletedTask>(q);
+    return completedTasks;
   }
 };
