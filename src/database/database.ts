@@ -83,7 +83,6 @@ export const markTaskComplete = async (id: string) => {
     const statsSnapshot = await getDoc(statsRef);
     const currentXp = statsSnapshot.exists() ? statsSnapshot.data().xp : 0;
     const xpReward = task?.frequency === "daily" ? 10 : 50;
-
     return await setDoc(
       statsRef,
       {
@@ -92,6 +91,7 @@ export const markTaskComplete = async (id: string) => {
       { merge: true }
     );
   }
+
 };
 
 export const getUserStats = async () => {
