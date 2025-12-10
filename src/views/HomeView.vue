@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
-import { getUserTasks, createTask } from "@/database/database";
+import { getUserTasks, createTask, updateTask, deleteTask } from "@/database/database";
 import type Task from "@/interfaces/Task";
 
 const data = await getUserTasks();
@@ -34,15 +34,14 @@ function closeModal() {
   selectedTask.value = null;
 }
 
-function handleSave(updatedTask: Task & { id: string }) {
-  console.log("Saving task:", updatedTask);
-  // TODO: Implement
+async function handleSave(updatedTask: Task & { id: string }) {
+  await updateTask(updatedTask.id, updatedTask);
   closeModal();
 }
 
-function handleDelete(taskId: string) {
-  console.log("Deleting task:", taskId);
-  // TODO: implement
+async function handleDelete(taskId: string) {
+  await deleteTask(taskId);
+
   closeModal();
 }
 
@@ -55,9 +54,6 @@ function handleComplete(taskId: string) {
   // or on mobile just after a brief pause (again for time to undo if needed)
 
   // temp
-  setTimeout(() => {
-    closeModal();
-  }, 1000);
 }
 </script>
 <template>

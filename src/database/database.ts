@@ -136,6 +136,14 @@ export const updateUserSettings = async (data: { notifications?: boolean }) => {
   }
 };
 
+export const deleteTask = async (id: string) => {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+      const reference = doc(db, "users", currentUser.uid, "user_defined_tasks", id);
+      await deleteDoc(reference);
+  }
+}
+
 export const deleteAccount = async () => {
   try {
     const currentUser = await getCurrentUser();
