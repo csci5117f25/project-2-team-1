@@ -9,6 +9,9 @@ import {
   setDoc,
   updateDoc,
   getDoc,
+  getDocs,
+  QueryDocumentSnapshot,
+  type DocumentData,
 } from "firebase/firestore";
 import { computed, watch } from "vue";
 import { getCurrentUser, useCollection, useDocument } from "vuefire";
@@ -55,7 +58,7 @@ export const createTask = async (data: Task) => {
 
 export const updateTask = async (
   id: string,
-  data: { last_completed_time?: number; frequency?: string; name?: string }
+  data: { last_completed_time?: number; frequency?: string; name?: string; current_streak?: number }
 ) => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
@@ -64,13 +67,79 @@ export const updateTask = async (
   }
 };
 
+const calculateStreakTaskContinue = (task: DocumentData) => {
+  const last = new Date(task.last_completed_time);
+  const now = new Date();
+  const lastTime = last.getTime();
+  const nowTime = now.getTime();
+
+  const delta = nowTime - lastTime;
+  const timeInADay = 1000 * 60 * 60 * 24;
+  const timeInAMonth = timeInADay * 30;
+  switch (task.frequency) {
+    case "daily":
+      return delta <= timeInADay * 2;
+    case "monthly":
+      return delta <= timeInAMonth + timeInADay;
+  }
+};
+
+const isCompletedToday = (task: DocumentData) => {
+  if (!task.last_completed_time) return false;
+  const last = new Date(task.last_completed_time);
+  const now = new Date();
+
+  const isSameDay =
+    last.getDate() === now.getDate() &&
+    last.getMonth() === now.getMonth() &&
+    last.getFullYear() === now.getFullYear();
+
+  const isSameMonth =
+    last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear();
+
+  if (task.frequency === "daily") return isSameDay;
+  if (task.frequency === "monthly") return isSameMonth;
+  return false;
+};
+
+const calculateGlobalStreak = async () => {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+    const tasks = await getDocs(collection(db, "users", currentUser.uid, "user_defined_tasks"));
+    const userStats: DocumentData = await getDoc(
+      doc(db, "users", currentUser.uid, "stats", "current")
+    );
+    tasks.forEach((task: QueryDocumentSnapshot) => {
+      if (calculateStreakTaskContinue(task)) {
+        // the task is stil within the valid range
+        if (!isCompletedToday(task)) {
+          // the task was not completed today, but global streak still safe
+          return userStats.streak;
+        }
+      } else {
+        // the task has expired
+        return 0;
+      }
+    });
+    return userStats.streak + 1; // all the tasks are valid, and completed today
+  }
+};
+
 export const markTaskComplete = async (id: string) => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    await updateTask(id, {
-      last_completed_time: Date.now(),
-    });
     const task = await getUserTask(id);
+    if (task) {
+      const newStreak = calculateStreakTaskContinue(task) ? task.current_streak + 1 : 1;
+      const newGlobalStreak = await calculateGlobalStreak();
+      await updateUserStats({ streak: newGlobalStreak });
+
+      await updateTask(id, {
+        last_completed_time: Date.now(),
+        current_streak: newStreak,
+      });
+    }
+
     const streak = task?.current_streak ?? 0;
     const completedTaskData: CompletedTask = {
       parent_id: id,
@@ -99,6 +168,14 @@ export const getUserStats = async () => {
   if (currentUser) {
     const reference = doc(db, "users", currentUser.uid, "stats", "current");
     return useDocument(reference);
+  }
+};
+
+export const updateUserStats = async (data: { streak?: number }) => {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+    const reference = doc(db, "users", currentUser.uid, "stats", "current");
+    await setDoc(reference, data, { merge: true });
   }
 };
 
