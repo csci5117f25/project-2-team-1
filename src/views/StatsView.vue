@@ -2,46 +2,26 @@
 import { computed, ref, watch, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
-import { createTask, updateTask, markTaskComplete } from "@/database/database";
+import { createTask, updateTask, markTaskComplete, getUserTasks } from "@/database/database";
 import type Task from "@/interfaces/Task";
 import { collection, doc, orderBy, query } from "firebase/firestore";
 import { useCollection, useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 
 const displayTasks = ref<(Task & { id: string })[]>([]);
-const isLoading = ref(true);
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
 
 const user = useCurrentUser();
-
-// reactive refs so they cant be imported from db.ts
-const tasksQuery = computed(() => {
-  if (!user.value) return null;
-  const ref = collection(db, "users", user.value.uid, "user_defined_tasks");
-  return query(ref, orderBy("last_completed_time", "desc"));
-});
+console.log(user.value.uid);
 
 const statsDocRef = computed(() => {
   if (!user.value) return null;
   return doc(db, "users", user.value.uid, "stats", "current");
 });
 
-const tasksRef = useCollection(tasksQuery);
+const tasks = await getUserTasks();
 const statsRef = useDocument<{ xp: number }>(statsDocRef);
-
-// watch to update list when new task
-watch(
-  tasksRef,
-  (newTasks) => {
-    if (newTasks) {
-      const allTasks = newTasks as (Task & { id: string })[];
-      displayTasks.value = allTasks.filter((t) => t.name?.trim());
-      isLoading.value = false;
-    }
-  },
-  { immediate: true }
-);
 
 // leveling calculations
 const currentXP = computed(() => statsRef.value?.xp || 0);
@@ -73,6 +53,8 @@ const saveDraft = async () => {
 };
 
 const cycleDraftFrequency = () => {
+  console.log("test");
+  console.log(draftTask);
   if (draftTask.value) {
     draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
   }
@@ -159,12 +141,7 @@ const isCompletedToday = (task: Task) => {
         </button>
       </div>
 
-      <div v-if="isLoading" class="placeholder-state">
-        <p>Loading tasks...</p>
-        <!-- TODO: I really wanna do a skeleton here instead because the techshare inspired me -->
-      </div>
-
-      <div v-else class="task-list">
+      <div class="task-list">
         <div v-if="draftTask" class="task-card draft-card">
           <div class="checkbox-container">
             <button class="icon-btn save-btn" @click="saveDraft" title="Save Task">
@@ -189,7 +166,7 @@ const isCompletedToday = (task: Task) => {
         </div>
 
         <div
-          v-for="task in displayTasks"
+          v-for="task in tasks"
           :key="task.id"
           class="task-card"
           :class="{ completed: isCompletedToday(task) }"
