@@ -5,15 +5,17 @@ import ContributionGraph from "@/components/ContributionGraph.vue";
 import { createTask, updateTask, markTaskComplete, getUserTasks } from "@/database/database";
 import type Task from "@/interfaces/Task";
 import { collection, doc, orderBy, query } from "firebase/firestore";
+import type {DocumentData} from "firebase/firestore";
 import { useCollection, useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
+import type { VueDatabaseDocumentData } from "vuefire";
+
 
 const displayTasks = ref<(Task & { id: string })[]>([]);
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
 
 const user = useCurrentUser();
-console.log(user.value.uid);
 
 const statsDocRef = computed(() => {
   if (!user.value) return null;
@@ -60,16 +62,16 @@ const cycleDraftFrequency = () => {
   }
 };
 
-const updateTaskName = (task: Task & { id: string }, newName: string) => {
+const updateTaskName = (task: DocumentData, newName: string) => {
   updateTask(task.id, { name: newName });
 };
 
-const cycleFrequency = (task: Task & { id: string }) => {
+const cycleFrequency = (task: DocumentData) => {
   const next = task.frequency === "daily" ? "monthly" : "daily";
   updateTask(task.id, { frequency: next });
 };
 
-const handleCheck = (task: Task & { id: string }, isChecked: boolean) => {
+const handleCheck = (task: DocumentData, isChecked: boolean) => {
   if (isChecked) {
     markTaskComplete(task.id);
   }
@@ -84,7 +86,7 @@ const currentDateDisplay = computed(() => {
 });
 
 // check if task completed based on frequency
-const isCompletedToday = (task: Task) => {
+const isCompletedToday = (task: DocumentData) => {
   if (!task.last_completed_time) return false;
   const last = new Date(task.last_completed_time);
   const now = new Date();
