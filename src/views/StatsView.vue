@@ -177,11 +177,18 @@ const isCompletedToday = (task: Task) => {
           </div>
 
           <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
-            {{  draftTask.icon || "😎" }}
+            {{ draftTask.icon || "😎" }}
           </button>
 
           <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
-            <EmojiPicker @select="(e) => { draftTask.icon = e.i; showEmojiPicker = false }"></EmojiPicker>
+            <EmojiPicker
+              @select="
+                (e) => {
+                  draftTask.icon = e.i;
+                  showEmojiPicker = false;
+                }
+              "
+            ></EmojiPicker>
           </div>
 
           <div class="task-details">
@@ -216,7 +223,7 @@ const isCompletedToday = (task: Task) => {
           </div>
 
           <span class="task-emoji">
-            {{  task.icon }}
+            {{ task.icon }}
           </span>
 
           <div class="task-details">
