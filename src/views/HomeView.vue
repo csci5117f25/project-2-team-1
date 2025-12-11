@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
-import { getUserTasks, createTask } from "@/database/database";
+import { getUserTasks, createTask, updateTask, deleteTask, markTaskComplete } from "@/database/database";
 import type Task from "@/interfaces/Task";
 
 const data = await getUserTasks();
@@ -34,30 +34,20 @@ function closeModal() {
   selectedTask.value = null;
 }
 
-function handleSave(updatedTask: Task & { id: string }) {
-  console.log("Saving task:", updatedTask);
-  // TODO: Implement
+async function handleSave(updatedTask: Task & { id: string }) {
+  await updateTask(updatedTask.id, updatedTask);
   closeModal();
 }
 
-function handleDelete(taskId: string) {
-  console.log("Deleting task:", taskId);
-  // TODO: implement
+async function handleDelete(taskId: string) {
+  await deleteTask(taskId);
+
   closeModal();
 }
 
-function handleComplete(taskId: string) {
-  console.log("Completing task:", taskId);
-  // TODO: Implement
+async function handleComplete(taskId: string) {
 
-  // wait for cursor to leave button, then wait a moment before closing
-  // for feedback/chance for user to undo complete
-  // or on mobile just after a brief pause (again for time to undo if needed)
-
-  // temp
-  setTimeout(() => {
-    closeModal();
-  }, 1000);
+  await markTaskComplete(taskId);
 }
 </script>
 <template>

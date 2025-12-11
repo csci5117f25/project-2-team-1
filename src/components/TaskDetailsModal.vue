@@ -21,6 +21,7 @@ const editedTask = ref<(Task & { id: string }) | null>(null);
 const isCompleting = ref(false);
 const slideDirection = ref<"left" | "right" | null>(null);
 const isSlidingOut = ref(false);
+const completeTimeoutId = ref(-1);
 
 // watch for changes to task to update editedTask accordingly
 watch(
@@ -66,11 +67,21 @@ function handleClose() {
   emit("close");
 }
 
-// function handleComplete() {
-//   if (props.task) {
-//     emit("complete", props.task.id);
-//   }
-// }
+function handleComplete() {
+  isCompleting.value = !isCompleting.value;
+  if (completeTimeoutId.value !== -1) {
+    clearTimeout(completeTimeoutId.value);
+    completeTimeoutId.value = -1;
+  } else {
+    completeTimeoutId.value = setTimeout(() => {
+      if (props.task) {
+        completeTimeoutId.value = -1;
+        handleClose();
+        emit("complete", props.task.id);
+      }
+    }, 1000);
+  }
+}
 
 // Close on background click
 function handleBackgroundClick(event: MouseEvent) {
@@ -168,7 +179,7 @@ function handleNextTask() {
           <button
             class="complete-toggle-btn"
             :class="{ active: isCompleting }"
-            @click="isCompleting = !isCompleting"
+            @click="handleComplete"
           >
             {{ isCompleting ? "Completed!" : "Complete for Today" }}
           </button>

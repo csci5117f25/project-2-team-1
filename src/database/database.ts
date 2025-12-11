@@ -83,7 +83,6 @@ export const markTaskComplete = async (id: string) => {
     const statsSnapshot = await getDoc(statsRef);
     const currentXp = statsSnapshot.exists() ? statsSnapshot.data().xp : 0;
     const xpReward = task?.frequency === "daily" ? 10 : 50;
-
     return await setDoc(
       statsRef,
       {
@@ -92,6 +91,7 @@ export const markTaskComplete = async (id: string) => {
       { merge: true }
     );
   }
+
 };
 
 export const getUserStats = async () => {
@@ -135,6 +135,14 @@ export const updateUserSettings = async (data: { notifications?: boolean }) => {
     await setDoc(reference, data, { merge: true });
   }
 };
+
+export const deleteTask = async (id: string) => {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+      const reference = doc(db, "users", currentUser.uid, "user_defined_tasks", id);
+      await deleteDoc(reference);
+  }
+}
 
 export const deleteAccount = async () => {
   try {
