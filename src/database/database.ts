@@ -60,7 +60,7 @@ export const updateTask = async (
   const currentUser = await getCurrentUser();
   if (currentUser) {
     const reference = doc(db, "users", currentUser.uid, "user_defined_tasks", id);
-    await updateDoc(reference, data);
+    await setDoc(reference, data, { merge: true });
   }
 };
 
