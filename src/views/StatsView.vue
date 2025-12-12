@@ -163,8 +163,8 @@ const isCompletedToday = (task: DocumentData) => {
           <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
             <EmojiPicker
               @select="
-                (e) => {
-                  draftTask.icon = e.i;
+                (e: { i: string }) => {
+                  draftTask!.icon = e.i;
                   showEmojiPicker = false;
                 }
               "
