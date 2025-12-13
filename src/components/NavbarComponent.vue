@@ -25,6 +25,12 @@ const isSidebarShown = ref(false);
     </button>
   </div>
 
+  <div
+    v-if="isSidebarShown"
+    class="sidebar-backdrop"
+    @click="isSidebarShown = false"
+  ></div>
+
   <Sidebar @close-sidebar="isSidebarShown = false" v-if="isSidebarShown" />
 </template>
 
@@ -92,5 +98,13 @@ div {
     top: 50%;
     transform: translateY(-50%);
   }
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  z-index: 99;
 }
 </style>

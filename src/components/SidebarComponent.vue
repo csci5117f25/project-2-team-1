@@ -63,11 +63,12 @@ async function logout() {
 <style scoped lang="scss">
 a {
   color: white;
-  background-color: var(--accent-color-secondary);
+  background-color: var(--accent-color-primary);
   padding: 2rem 2rem 2rem 2rem;
   width: 100%;
   font-size: 1.2rem;
   border-top: 1px solid #cccccc;
+  transition: background-color 0.2s ease, padding-left 0.2s ease;
 
   &#logout-btn {
     border-bottom-left-radius: 1rem;
@@ -76,7 +77,8 @@ a {
 
   &:hover {
     cursor: pointer;
-    background-color: var(--accent-color-tertiary);
+    background-color: var(--accent-color-secondary);
+    padding-left: 2.5rem;
   }
 }
 
@@ -85,7 +87,9 @@ a {
   top: 0;
   right: 0;
   z-index: 100;
-  background-color: var(--accent-color-secondary);
+  background-color: var(--accent-color-primary);
+  border-left: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.25);
   width: 24rem;
   height: 100vh;
   display: flex;
@@ -94,6 +98,7 @@ a {
   padding: 0;
   border-top-left-radius: 1rem;
   border-bottom-left-radius: 1rem;
+  animation: slideIn 0.25s ease-out;
 
   div {
     width: 100%;
@@ -116,6 +121,10 @@ a {
         width: 3rem;
         height: 3rem;
       }
+
+      &:hover svg {
+        color: var(--accent-color-secondary);
+      }
     }
   }
 
@@ -129,6 +138,17 @@ a {
 @media (max-width: 480px) {
   .sidebar {
     width: 100vw;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    box-shadow: none;
+  }
+  to {
+    transform: translateX(0);
+    box-shadow: -8px 0 24px rgba(0,0,0,0.25);
   }
 }
 </style>
