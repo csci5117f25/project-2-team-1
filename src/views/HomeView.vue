@@ -2,12 +2,20 @@
 import { ref } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
-import { getUserTasks, createTask, updateTask, deleteTask, markTaskComplete } from "@/database/database";
+import {
+  getUserTasks,
+  getUserStats,
+  createTask,
+  updateTask,
+  deleteTask,
+  markTaskComplete,
+} from "@/database/database";
 import type Task from "@/interfaces/Task";
 
 const data = await getUserTasks();
 const selectedTask = ref<(Task & { id: string }) | null>(null);
 const isModalOpen = ref(false);
+const userStats = await getUserStats();
 
 function createSampleTask() {
   createTask({
@@ -17,6 +25,7 @@ function createSampleTask() {
     last_completed_time: Date.now(),
     current_streak: 0,
     xp: 10,
+    created_at: Date.now(),
   });
 }
 
@@ -46,7 +55,6 @@ async function handleDelete(taskId: string) {
 }
 
 async function handleComplete(taskId: string) {
-
   await markTaskComplete(taskId);
 }
 
@@ -71,6 +79,12 @@ function isCompletedToday(lastCompleted: string): boolean {
 <template>
   <div>
     <Navbar />
+
+    <div>
+      {{ userStats }}
+      Streak: {{ userStats?.current_streak }}
+    </div>
+
     <div class="mobile-container">
       <div>
         <p>Current Streak: {{}}</p>

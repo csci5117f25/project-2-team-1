@@ -102,7 +102,6 @@ const currentTaskIndex = computed(() => {
   if (!props.task || !props.tasks || props.tasks.length === 0) {
     return -1;
   }
-  console.log(props.task!.id);
   return props.tasks.findIndex((t) => t.id === props.task!.id);
 });
 
