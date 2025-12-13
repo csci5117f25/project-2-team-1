@@ -207,7 +207,7 @@ function handleNextTask() {
 
         <div class="field-group">
           <label for="task-icon">Icon</label>
-          <input id="task-icon" v-model="editedTask.icon" type="text" placeholder="icon (TODO)" />
+          <input id="task-icon" v-model="editedTask.icon" type="text" placeholder="icon" />
         </div>
 
         <div class="stats-section">

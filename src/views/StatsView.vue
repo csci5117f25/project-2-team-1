@@ -8,6 +8,13 @@ import { doc } from "firebase/firestore";
 import type { DocumentData } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
+import type { VueDatabaseDocumentData } from "vuefire";
+import EmojiPicker from "vue3-emoji-picker";
+import "/node_modules/vue3-emoji-picker/dist/style.css";
+
+const showEmojiPicker = ref(false);
+
+
 
 const displayTasks = ref<(Task & { id: string })[]>([]);
 const draftTask = ref<Task | null>(null);
@@ -36,7 +43,7 @@ const toggleTaskCreation = async () => {
     draftTask.value = {
       frequency: "daily",
       name: "",
-      icon: "📝",
+      icon: "",
       last_completed_time: 0,
       current_streak: 0,
       xp: 10,
@@ -148,6 +155,21 @@ const isCompletedToday = (task: DocumentData) => {
             </button>
           </div>
 
+          <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
+            {{ draftTask.icon || "😎" }}
+          </button>
+
+          <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
+            <EmojiPicker
+              @select="
+                (e: { i: string }) => {
+                  draftTask!.icon = e.i;
+                  showEmojiPicker = false;
+                }
+              "
+            ></EmojiPicker>
+          </div>
+
           <div class="task-details">
             <input
               ref="draftInput"
@@ -178,6 +200,10 @@ const isCompletedToday = (task: DocumentData) => {
               @change="(e) => handleCheck(task, (e.target as HTMLInputElement).checked)"
             />
           </div>
+
+          <span class="task-emoji">
+            {{ task.icon }}
+          </span>
 
           <div class="task-details">
             <input
@@ -324,6 +350,7 @@ const isCompletedToday = (task: DocumentData) => {
 }
 
 .task-card {
+  position: relative;
   background: white;
   padding: 1rem;
   border-radius: 10px;
@@ -444,5 +471,15 @@ const isCompletedToday = (task: DocumentData) => {
     padding: 0.2rem 0.6rem;
     font-size: 0.7rem;
   }
+}
+
+.task-emoji {
+  font-size: 1.5rem;
+}
+
+.emoji-picker-wrapper {
+  position: absolute;
+  top: -260px;
+  left: 0;
 }
 </style>
