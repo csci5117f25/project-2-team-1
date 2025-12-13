@@ -7,10 +7,8 @@ import {
   orderBy,
   query,
   setDoc,
-  updateDoc,
   getDoc,
   getDocs,
-  QueryDocumentSnapshot,
   type DocumentData,
 } from "firebase/firestore";
 import { computed, watch } from "vue";
@@ -52,7 +50,38 @@ export const getUserTask = async (taskId: string) => {
 export const createTask = async (data: Task) => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    return await addDoc(collection(db, "users", currentUser.uid, "user_defined_tasks"), data);
+    const taskWithTimestamp = {
+      ...data,
+      created_at: data.created_at || Date.now(),
+    };
+
+    const tasksSnapshot = await getDocs(
+      collection(db, "users", currentUser.uid, "user_defined_tasks")
+    );
+
+    let allExistingTasksCompletedToday = true;
+    tasksSnapshot.forEach((taskDoc) => {
+      const task = taskDoc.data();
+      if (!isCompletedToday(task)) {
+        allExistingTasksCompletedToday = false;
+      }
+    });
+
+    // if all tasks were already completed today, decrease streak by 1
+    if (allExistingTasksCompletedToday && !tasksSnapshot.empty) {
+      const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
+      const statsSnapshot = await getDoc(statsRef);
+      const currentStreak = statsSnapshot.exists() ? (statsSnapshot.data().streak ?? 0) : 0;
+
+      if (currentStreak > 0) {
+        await setDoc(statsRef, { streak: currentStreak - 1 }, { merge: true });
+      }
+    }
+
+    return await addDoc(
+      collection(db, "users", currentUser.uid, "user_defined_tasks"),
+      taskWithTimestamp
+    );
   }
 };
 
@@ -68,14 +97,35 @@ export const updateTask = async (
 };
 
 const calculateStreakTaskContinue = (task: DocumentData) => {
-  const last = new Date(task.last_completed_time);
   const now = new Date();
-  const lastTime = last.getTime();
-  const nowTime = now.getTime();
-
-  const delta = nowTime - lastTime;
   const timeInADay = 1000 * 60 * 60 * 24;
   const timeInAMonth = timeInADay * 30;
+
+  // if task has never been completed, check if it was created before the current period deadline
+  if (!task.last_completed_time || task.last_completed_time === 0) {
+    if (!task.created_at) return true; // Very old task without created_at, give grace
+
+    const created = new Date(task.created_at);
+    const createdTime = created.getTime();
+    const nowTime = now.getTime();
+    const delta = nowTime - createdTime;
+
+    // for daily: if created more than 1 day ago and never completed, streak broken
+    // for monthly: if created more than 1 month ago and never completed, streak broken
+    if (task.frequency === "daily") {
+      return delta <= timeInADay;
+    } else if (task.frequency === "monthly") {
+      return delta <= timeInAMonth;
+    }
+    return true;
+  }
+
+  // task has been completed before
+  const last = new Date(task.last_completed_time);
+  const lastTime = last.getTime();
+  const nowTime = now.getTime();
+  const delta = nowTime - lastTime;
+
   switch (task.frequency) {
     case "daily":
       return delta <= timeInADay * 2;
@@ -105,24 +155,44 @@ const isCompletedToday = (task: DocumentData) => {
 const calculateGlobalStreak = async () => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    const tasks = await getDocs(collection(db, "users", currentUser.uid, "user_defined_tasks"));
-    const userStats: DocumentData = await getDoc(
-      doc(db, "users", currentUser.uid, "stats", "current")
+    const tasksSnapshot = await getDocs(
+      collection(db, "users", currentUser.uid, "user_defined_tasks")
     );
-    tasks.forEach((task: QueryDocumentSnapshot) => {
-      if (calculateStreakTaskContinue(task)) {
-        // the task is stil within the valid range
-        if (!isCompletedToday(task)) {
-          // the task was not completed today, but global streak still safe
-          return userStats.streak;
-        }
-      } else {
-        // the task has expired
-        return 0;
+
+    const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
+    const statsSnapshot = await getDoc(statsRef);
+    const currentStreak = statsSnapshot.exists() ? (statsSnapshot.data().streak ?? 0) : 0;
+
+    if (tasksSnapshot.empty) {
+      return currentStreak; // no tasks - maintain current streak
+    }
+
+    let allTasksCompletedToday = true;
+    let anyTaskExpired = false;
+
+    tasksSnapshot.forEach((taskDoc) => {
+      const task = taskDoc.data();
+
+      if (!calculateStreakTaskContinue(task)) {
+        // task expired - streak is broken
+        anyTaskExpired = true;
+      } else if (!isCompletedToday(task)) {
+        // task is valid but not completed today
+        allTasksCompletedToday = false;
       }
     });
-    return userStats.streak + 1; // all the tasks are valid, and completed today
+
+    if (anyTaskExpired) {
+      return 0; // streak broken
+    }
+
+    if (allTasksCompletedToday) {
+      return currentStreak + 1; // all tasks completed today - increment
+    }
+
+    return currentStreak; // some tasks not completed yet - maintain current streak
   }
+  return 0;
 };
 
 export const markTaskComplete = async (id: string) => {
@@ -131,13 +201,13 @@ export const markTaskComplete = async (id: string) => {
     const task = await getUserTask(id);
     if (task) {
       const newStreak = calculateStreakTaskContinue(task) ? task.current_streak + 1 : 1;
-      const newGlobalStreak = await calculateGlobalStreak();
-      await updateUserStats({ streak: newGlobalStreak });
-
       await updateTask(id, {
         last_completed_time: Date.now(),
         current_streak: newStreak,
       });
+
+      const newGlobalStreak = await calculateGlobalStreak();
+      await updateUserStats({ streak: newGlobalStreak });
     }
 
     const streak = task?.current_streak ?? 0;
@@ -160,7 +230,6 @@ export const markTaskComplete = async (id: string) => {
       { merge: true }
     );
   }
-
 };
 
 export const getUserStats = async () => {
@@ -216,10 +285,10 @@ export const updateUserSettings = async (data: { notifications?: boolean }) => {
 export const deleteTask = async (id: string) => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-      const reference = doc(db, "users", currentUser.uid, "user_defined_tasks", id);
-      await deleteDoc(reference);
+    const reference = doc(db, "users", currentUser.uid, "user_defined_tasks", id);
+    await deleteDoc(reference);
   }
-}
+};
 
 export const deleteAccount = async () => {
   try {

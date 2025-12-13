@@ -5,4 +5,5 @@ export default interface Task {
   last_completed_time: number;
   current_streak: number;
   xp: number;
+  created_at: number;
 }

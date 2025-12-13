@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from "vue";
+import { computed, ref, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
 import { createTask, updateTask, markTaskComplete, getUserTasks } from "@/database/database";
 import type Task from "@/interfaces/Task";
-import { collection, doc, orderBy, query } from "firebase/firestore";
-import type {DocumentData} from "firebase/firestore";
-import { useCollection, useDocument, useCurrentUser } from "vuefire";
+import { doc } from "firebase/firestore";
+import type { DocumentData } from "firebase/firestore";
+import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import type { VueDatabaseDocumentData } from "vuefire";
 import EmojiPicker from "vue3-emoji-picker";
@@ -47,6 +47,7 @@ const toggleTaskCreation = async () => {
       last_completed_time: 0,
       current_streak: 0,
       xp: 10,
+      created_at: Date.now(),
     };
     await nextTick();
     draftInput.value?.focus();
@@ -60,8 +61,6 @@ const saveDraft = async () => {
 };
 
 const cycleDraftFrequency = () => {
-  console.log("test");
-  console.log(draftTask);
   if (draftTask.value) {
     draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
   }
