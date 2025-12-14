@@ -120,14 +120,6 @@ const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => 
 
   handleCheck(task.id);
 };
-
-const currentDateDisplay = computed(() => {
-  return new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-});
 </script>
 
 <template>
@@ -135,7 +127,6 @@ const currentDateDisplay = computed(() => {
     <Navbar />
 
     <div class="content-container">
-      <h1 class="date-header">{{ currentDateDisplay }}</h1>
 
       <div class="card stats-card">
         <div class="stats-header">
@@ -268,13 +259,6 @@ const currentDateDisplay = computed(() => {
   max-width: 800px;
   margin: 0 auto;
   padding: 1.5rem 1rem;
-}
-
-.date-header {
-  font-size: 1.5rem;
-  color: var(--accent-color-primary);
-  margin-bottom: 1.5rem;
-  font-weight: 600;
 }
 
 .card {
