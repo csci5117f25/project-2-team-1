@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick } from "vue";
 import type Task from "@/interfaces/Task";
+import EmojiPicker from "vue3-emoji-picker";
+import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const props = defineProps<{
   task: (Task & { id: string }) | null; // firestore documents will include ids
@@ -21,6 +23,7 @@ const editedTask = ref<(Task & { id: string }) | null>(null);
 const isCompleting = ref(false);
 const slideDirection = ref<"left" | "right" | null>(null);
 const isSlidingOut = ref(false);
+const showEmojiPicker = ref(false);
 const completeTimeoutId = ref(-1);
 
 // watch for changes to task to update editedTask accordingly
@@ -186,13 +189,30 @@ function handleNextTask() {
 
         <div class="field-group">
           <label for="task-name">Task Name</label>
-          <input
-            id="task-name"
-            v-model="editedTask.name"
-            type="text"
-            placeholder="Task name"
-            required
-          />
+          <div class="input-with-icon">
+            <button class="emoji-trigger" type="button" @click="showEmojiPicker = !showEmojiPicker">
+              {{ editedTask.icon || "😎" }}
+            </button>
+            <input
+              id="task-name"
+              v-model="editedTask.name"
+              type="text"
+              placeholder="Task name"
+              required
+            />
+          </div>
+
+          <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
+            <EmojiPicker
+              @select="
+                // copied from stats view
+                (e: { i: string }) => {
+                  editedTask!.icon = e.i;
+                  showEmojiPicker = false;
+                }
+              "
+            ></EmojiPicker>
+          </div>
         </div>
 
         <div class="field-group">
@@ -203,11 +223,6 @@ function handleNextTask() {
             type="text"
             placeholder="e.g., daily, weekly, monthly"
           />
-        </div>
-
-        <div class="field-group">
-          <label for="task-icon">Icon</label>
-          <input id="task-icon" v-model="editedTask.icon" type="text" placeholder="icon" />
         </div>
 
         <div class="stats-section">
@@ -242,10 +257,12 @@ function handleNextTask() {
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-delete" @click="handleDelete">Delete</button>
+        <div class="left-actions">
+          <button class="btn btn-delete" @click="handleDelete">Delete</button>
+        </div>
         <div class="right-actions">
           <button class="btn btn-secondary" @click="handleClose">Cancel</button>
-          <button class="btn btn-primary" @click="handleSave">Save Changes</button>
+          <button class="btn btn-primary" @click="handleSave">Save</button>
         </div>
       </div>
     </div>
@@ -419,6 +436,7 @@ function handleNextTask() {
 
   .field-group {
     margin-bottom: 20px;
+    position: relative;
 
     label {
       display: block;
@@ -481,7 +499,7 @@ function handleNextTask() {
     padding: 20px 20px 12px 20px;
     background-color: #f7f7f7;
     border-radius: 6px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #dadada;
 
     h3 {
       margin: 0 0 4px 0;
@@ -522,6 +540,7 @@ function handleNextTask() {
   background-color: #f7f7f7;
   border-radius: 0 0 12px 12px;
 
+  .left-actions,
   .right-actions {
     display: flex;
     gap: 12px;
@@ -571,6 +590,69 @@ function handleNextTask() {
         background-color: #bd1f2f;
       }
     }
+  }
+}
+
+.input-with-icon {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.emoji-trigger {
+  font-size: 1.2rem;
+  background: none;
+  border: 1px solid #dadada;
+  border-radius: 6px;
+  padding: 0 10px;
+  cursor: pointer;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-picker-wrapper {
+  margin-top: 6px;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 1100;
+  max-width: min(320px, 90%);
+}
+
+@media (max-width: 600px) {
+  .modal-footer {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 8px;
+    align-items: stretch;
+  }
+
+  .modal-footer .left-actions,
+  .modal-footer .right-actions {
+    display: contents;
+  }
+
+  .modal-footer .left-actions .btn-delete {
+    grid-column: 1;
+  }
+
+  .modal-footer .right-actions .btn-secondary {
+    grid-column: 2;
+  }
+
+  .modal-footer .right-actions .btn-primary {
+    grid-column: 3;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 </style>
