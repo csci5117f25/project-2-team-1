@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
 import {
@@ -44,12 +44,21 @@ async function handleDelete(taskId: string) {
 async function handleComplete(taskId: string) {
   await markTaskComplete(taskId);
 }
+
+const currentDateDisplay = computed(() => {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+});
 </script>
 <template>
   <div>
     <Navbar />
 
     <div class="mobile-container">
+      <h1 class="date-header">{{ currentDateDisplay }}</h1>
       <div>
         <StreakWidget />
       </div>
@@ -85,6 +94,13 @@ async function handleComplete(taskId: string) {
 </template>
 
 <style lang="scss" scoped>
+.date-header {
+  font-size: 1.5rem;
+  color: var(--accent-color-primary);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
 .home-task {
   background-color: white;
   box-shadow: 0.3rem 0.4rem 0.5rem rgba(0, 0, 0, 0.1);
