@@ -247,6 +247,56 @@ export const markTaskComplete = async (id: string) => {
   }
 };
 
+export const unmarkTaskComplete = async (id: string) => {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+    const task = await getUserTask(id);
+    if (!task || !isCompletedToday(task)) {
+      return;
+    }
+
+    // reset last_completed_time to 0 and decrement streak
+    const newStreak = Math.max(0, (task.current_streak || 1) - 1);
+    await updateTask(id, {
+      last_completed_time: 0,
+      current_streak: newStreak,
+    });
+
+    // update global streak
+    const newGlobalStreak = await calculateGlobalStreak();
+    await updateUserStats({ streak: newGlobalStreak });
+
+    // remove XP
+    const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
+    const statsSnapshot = await getDoc(statsRef);
+    const currentXp = statsSnapshot.exists() ? statsSnapshot.data().xp : 0;
+    const xpPenalty = task?.frequency === "daily" ? 10 : 50;
+    const newXp = Math.max(0, currentXp - xpPenalty);
+
+    await setDoc(
+      statsRef,
+      {
+        xp: newXp,
+      },
+      { merge: true }
+    );
+  }
+};
+
+export const toggleTaskComplete = async (id: string) => {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+    const task = await getUserTask(id);
+    if (task) {
+      if (isCompletedToday(task)) {
+        await unmarkTaskComplete(id);
+      } else {
+        await markTaskComplete(id);
+      }
+    }
+  }
+};
+
 export const getUserStats = async () => {
   const currentUser = await getCurrentUser();
   if (currentUser) {

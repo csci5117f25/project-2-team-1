@@ -6,7 +6,7 @@ import {
   getUserTasks,
   updateTask,
   deleteTask,
-  markTaskComplete,
+  toggleTaskComplete,
   isCompletedToday,
 } from "@/database/database";
 import StreakWidget from "@/components/StreakWidget.vue";
@@ -42,7 +42,7 @@ async function handleDelete(taskId: string) {
 }
 
 async function handleComplete(taskId: string) {
-  await markTaskComplete(taskId);
+  await toggleTaskComplete(taskId);
 }
 </script>
 <template>
@@ -84,7 +84,7 @@ async function handleComplete(taskId: string) {
   </div>
 </template>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .home-task {
   background-color: white;
   box-shadow: 0.3rem 0.4rem 0.5rem rgba(0, 0, 0, 0.1);

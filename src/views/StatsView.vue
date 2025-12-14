@@ -5,7 +5,7 @@ import ContributionGraph from "@/components/ContributionGraph.vue";
 import {
   createTask,
   updateTask,
-  markTaskComplete,
+  toggleTaskComplete,
   getUserTasks,
   isCompletedToday,
 } from "@/database/database";
@@ -78,10 +78,8 @@ const cycleFrequency = (task: DocumentData) => {
   updateTask(task.id, { frequency: next });
 };
 
-const handleCheck = (task: DocumentData, isChecked: boolean) => {
-  if (isChecked) {
-    markTaskComplete(task.id);
-  }
+const handleCheck = (task: DocumentData) => {
+  toggleTaskComplete(task.id);
 };
 
 const currentDateDisplay = computed(() => {
@@ -179,12 +177,7 @@ const currentDateDisplay = computed(() => {
           :class="{ completed: isCompletedToday(task) }"
         >
           <div class="checkbox-container">
-            <input
-              type="checkbox"
-              :checked="isCompletedToday(task)"
-              :disabled="isCompletedToday(task)"
-              @change="(e) => handleCheck(task, (e.target as HTMLInputElement).checked)"
-            />
+            <input type="checkbox" :checked="isCompletedToday(task)" @change="handleCheck(task)" />
           </div>
 
           <span class="task-emoji">
