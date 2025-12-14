@@ -14,8 +14,6 @@ import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const showEmojiPicker = ref(false);
 
-
-
 const displayTasks = ref<(Task & { id: string })[]>([]);
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
@@ -377,6 +375,7 @@ const isCompletedToday = (task: DocumentData) => {
 
   &.draft-card {
     border: 2px solid var(--accent-color-tertiary);
+    z-index: 10;
   }
 }
 
