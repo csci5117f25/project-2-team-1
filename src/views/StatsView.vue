@@ -2,14 +2,20 @@
 import { computed, ref, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
-import { createTask, updateTask, markTaskComplete, getUserTasks } from "@/database/database";
+import {
+  createTask,
+  updateTask,
+  markTaskComplete,
+  getUserTasks,
+  isCompletedToday,
+} from "@/database/database";
 import type Task from "@/interfaces/Task";
 import { doc } from "firebase/firestore";
 import type { DocumentData } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
-import type { VueDatabaseDocumentData } from "vuefire";
 import EmojiPicker from "vue3-emoji-picker";
+import StreakWidget from "@/components/StreakWidget.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const showEmojiPicker = ref(false);
@@ -86,25 +92,6 @@ const currentDateDisplay = computed(() => {
     day: "numeric",
   });
 });
-
-// check if task completed based on frequency
-const isCompletedToday = (task: DocumentData) => {
-  if (!task.last_completed_time) return false;
-  const last = new Date(task.last_completed_time);
-  const now = new Date();
-
-  const isSameDay =
-    last.getDate() === now.getDate() &&
-    last.getMonth() === now.getMonth() &&
-    last.getFullYear() === now.getFullYear();
-
-  const isSameMonth =
-    last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear();
-
-  if (task.frequency === "daily") return isSameDay;
-  if (task.frequency === "monthly") return isSameMonth;
-  return false;
-};
 </script>
 
 <template>
@@ -113,6 +100,8 @@ const isCompletedToday = (task: DocumentData) => {
 
     <div class="content-container">
       <h1 class="date-header">{{ currentDateDisplay }}</h1>
+
+      <StreakWidget />
 
       <div class="card stats-card">
         <div class="stats-header">

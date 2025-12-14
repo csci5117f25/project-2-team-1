@@ -134,7 +134,7 @@ const calculateStreakTaskContinue = (task: DocumentData) => {
   }
 };
 
-const isCompletedToday = (task: DocumentData) => {
+export const isCompletedToday = (task: DocumentData) => {
   if (!task.last_completed_time) return false;
   const last = new Date(task.last_completed_time);
   const now = new Date();

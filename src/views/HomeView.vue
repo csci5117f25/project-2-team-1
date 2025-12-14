@@ -4,30 +4,17 @@ import Navbar from "@/components/NavbarComponent.vue";
 import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
 import {
   getUserTasks,
-  getUserStats,
-  createTask,
   updateTask,
   deleteTask,
   markTaskComplete,
+  isCompletedToday,
 } from "@/database/database";
+import StreakWidget from "@/components/StreakWidget.vue";
 import type Task from "@/interfaces/Task";
 
 const data = await getUserTasks();
 const selectedTask = ref<(Task & { id: string }) | null>(null);
 const isModalOpen = ref(false);
-const userStats = await getUserStats();
-
-function createSampleTask() {
-  createTask({
-    frequency: "daily",
-    name: "test",
-    icon: "",
-    last_completed_time: Date.now(),
-    current_streak: 0,
-    xp: 10,
-    created_at: Date.now(),
-  });
-}
 
 function openTaskModal(task: Task & { id: string }) {
   selectedTask.value = { ...task, id: task.id };
@@ -57,37 +44,14 @@ async function handleDelete(taskId: string) {
 async function handleComplete(taskId: string) {
   await markTaskComplete(taskId);
 }
-
-function isCompletedToday(lastCompleted: string): boolean {
-  if (!lastCompleted) {
-    return false;
-  }
-
-  const lastCompletedObj = new Date(lastCompleted);
-  const today = new Date();
-
-  lastCompletedObj.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-
-  return (
-    lastCompletedObj.getFullYear() === today.getFullYear() &&
-    lastCompletedObj.getMonth() === today.getMonth() &&
-    lastCompletedObj.getDate() === today.getDate()
-  );
-}
 </script>
 <template>
   <div>
     <Navbar />
 
-    <div>
-      {{ userStats }}
-      Streak: {{ userStats?.current_streak }}
-    </div>
-
     <div class="mobile-container">
       <div>
-        <p>Current Streak: {{}}</p>
+        <StreakWidget />
       </div>
       <div
         v-for="task in data"
@@ -99,14 +63,13 @@ function isCompletedToday(lastCompleted: string): boolean {
           >{{ task.name }}
           <input
             type="checkbox"
-            @click.stop="console.log('hello')"
-            :checked="isCompletedToday(task.last_completed_time)"
+            @click.stop="handleComplete(task.id)"
+            :checked="isCompletedToday(task)"
           />
           <span @click.stop class="checkmark"></span>
         </label>
       </div>
     </div>
-    <button @click="createSampleTask">Create Sample Task</button>
 
     <TaskDetailsModal
       :task="selectedTask"
