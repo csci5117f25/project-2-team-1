@@ -20,7 +20,6 @@ import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const showEmojiPicker = ref(false);
 
-const displayTasks = ref<(Task & { id: string })[]>([]);
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
 
@@ -206,7 +205,7 @@ const currentDateDisplay = computed(() => {
           </div>
         </div>
 
-        <div v-if="displayTasks.length === 0 && !draftTask" class="placeholder-state">
+        <div v-if="tasks?.length === 0 && !draftTask" class="placeholder-state">
           <p>No tasks yet. Create one to get started!</p>
         </div>
       </div>

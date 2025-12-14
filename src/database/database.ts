@@ -22,7 +22,22 @@ export const getUserTasks = async () => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
     const reference = collection(db, "users", currentUser.uid, "user_defined_tasks");
-    const sortedData = useCollection(query(reference, orderBy("last_completed_time", "desc")));
+    const rawData = useCollection(query(reference));
+
+    const sortedData = computed(() => {
+      if (!rawData.value) return [];
+
+      return [...rawData.value].sort((a, b) => {
+        const aCompleted = isCompletedToday(a);
+        const bCompleted = isCompletedToday(b);
+
+        if (aCompleted === bCompleted) {
+          return (b.last_completed_time || 0) - (a.last_completed_time || 0);
+        }
+        return aCompleted ? 1 : -1;
+      });
+    });
+
     return sortedData;
   }
 };
