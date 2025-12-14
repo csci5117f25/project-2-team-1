@@ -8,13 +8,11 @@ import { doc } from "firebase/firestore";
 import type { DocumentData } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
-import type { VueDatabaseDocumentData } from "vuefire";
 import EmojiPicker from "vue3-emoji-picker";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const showEmojiPicker = ref(false);
 
-const displayTasks = ref<(Task & { id: string })[]>([]);
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
 
@@ -217,7 +215,7 @@ const isCompletedToday = (task: DocumentData) => {
           </div>
         </div>
 
-        <div v-if="displayTasks.length === 0 && !draftTask" class="placeholder-state">
+        <div v-if="tasks?.length === 0 && !draftTask" class="placeholder-state">
           <p>No tasks yet. Create one to get started!</p>
         </div>
       </div>
