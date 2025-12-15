@@ -7,7 +7,6 @@ import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
-import StreakWidget from "@/components/StreakWidget.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 import TaskList from "@/components/TaskList.vue";
 import { createTask } from "@/database/database";
@@ -16,6 +15,9 @@ const showEmojiPicker = ref(false);
 
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
+
+const selectedTask = ref<(Task & { id: string }) | null>(null);
+const isModalOpen = ref(false);
 
 const user = useCurrentUser();
 
@@ -68,7 +70,6 @@ const cycleDraftFrequency = () => {
     <Navbar />
 
     <div class="content-container">
-      <StreakWidget />
 
       <div class="card stats-card">
         <div class="stats-header">
@@ -141,6 +142,17 @@ const cycleDraftFrequency = () => {
         </div>
       </TaskList>
     </div>
+
+    <TaskDetailsModal
+      :task="selectedTask"
+      :isOpen="isModalOpen"
+      :tasks="tasks as (Task & { id: string })[]"
+      @close="closeModal"
+      @save="handleSave"
+      @delete="handleDelete"
+      @complete="handleComplete"
+      @navigate="handleNavigate"
+    />
   </div>
 </template>
 

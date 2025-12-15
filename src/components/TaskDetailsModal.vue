@@ -2,6 +2,7 @@
 import { ref, watch, computed, nextTick } from "vue";
 import type Task from "@/interfaces/Task";
 import EmojiPicker from "vue3-emoji-picker";
+import { isCompletedToday } from "@/database/database";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const props = defineProps<{
@@ -12,7 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
-  save: [task: Task & { id: string }];
+  save: [task: { name: string; icon: string; frequency: string; id: string }];
   delete: [taskId: string];
   complete: [taskId: string];
   navigate: [task: Task & { id: string }];
@@ -20,11 +21,33 @@ const emit = defineEmits<{
 
 const overlayRef = ref<HTMLDivElement | null>(null);
 const editedTask = ref<(Task & { id: string }) | null>(null);
-const isCompleting = ref(false);
+const wantsToToggle = ref(false);
 const slideDirection = ref<"left" | "right" | null>(null);
 const isSlidingOut = ref(false);
 const showEmojiPicker = ref(false);
-const completeTimeoutId = ref(-1);
+const xpReward = computed(() => {
+  if (!editedTask.value) return 0;
+  return editedTask.value.frequency === "daily" ? 10 : 50;
+});
+
+const isTaskCompleted = computed(() => {
+  if (!editedTask.value) return false;
+  return isCompletedToday(editedTask.value);
+});
+
+const displayAsCompleted = computed(() => {
+  return wantsToToggle.value ? !isTaskCompleted.value : isTaskCompleted.value;
+});
+
+const completeButtonText = computed(() => {
+  return displayAsCompleted.value ? "Undo Completion" : "Complete this Task";
+});
+
+const toggleFrequency = () => {
+  if (editedTask.value) {
+    editedTask.value.frequency = editedTask.value.frequency === "daily" ? "monthly" : "daily";
+  }
+};
 
 // watch for changes to task to update editedTask accordingly
 watch(
@@ -32,12 +55,12 @@ watch(
   (newTask) => {
     if (isSlidingOut.value) {
       editedTask.value = newTask ? { ...newTask } : null;
-      isCompleting.value = false;
+      wantsToToggle.value = false;
       isSlidingOut.value = false;
       setTimeout(() => (slideDirection.value = null), 150);
     } else {
       editedTask.value = newTask ? { ...newTask } : null;
-      isCompleting.value = false;
+      wantsToToggle.value = false;
       slideDirection.value = null;
     }
   },
@@ -56,7 +79,17 @@ watch(
 
 function handleSave() {
   if (editedTask.value) {
-    emit("save", editedTask.value);
+    const taskUpdate = {
+      name: editedTask.value.name,
+      icon: editedTask.value.icon,
+      frequency: editedTask.value.frequency,
+    };
+
+    emit("save", { ...taskUpdate, id: editedTask.value.id });
+
+    if (wantsToToggle.value) {
+      emit("complete", editedTask.value.id);
+    }
   }
 }
 
@@ -71,29 +104,15 @@ function handleClose() {
 }
 
 function handleComplete() {
-  isCompleting.value = !isCompleting.value;
-  if (completeTimeoutId.value !== -1) {
-    clearTimeout(completeTimeoutId.value);
-    completeTimeoutId.value = -1;
-  } else {
-    completeTimeoutId.value = setTimeout(() => {
-      if (props.task) {
-        completeTimeoutId.value = -1;
-        handleClose();
-        emit("complete", props.task.id);
-      }
-    }, 1000);
-  }
+  wantsToToggle.value = !wantsToToggle.value;
 }
 
-// Close on background click
 function handleBackgroundClick(event: MouseEvent) {
   if (event.target === event.currentTarget) {
     handleClose();
   }
 }
 
-// Close on Escape key
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === "Escape") {
     handleClose();
@@ -180,10 +199,10 @@ function handleNextTask() {
         <div class="field-group">
           <button
             class="complete-toggle-btn"
-            :class="{ active: isCompleting }"
+            :class="{ completed: displayAsCompleted }"
             @click="handleComplete"
           >
-            {{ isCompleting ? "Completed!" : "Complete for Today" }}
+            {{ completeButtonText }}
           </button>
         </div>
 
@@ -216,13 +235,16 @@ function handleNextTask() {
         </div>
 
         <div class="field-group">
-          <label for="task-frequency">Frequency</label>
-          <input
+          <label for="">Frequency</label>
+          <button
             id="task-frequency"
-            v-model="editedTask.frequency"
-            type="text"
-            placeholder="e.g., daily, weekly, monthly"
-          />
+            class="frequency-toggle-btn"
+            @click="toggleFrequency"
+            type="button"
+          >
+            <span class="frequency-label">{{ editedTask.frequency }}</span>
+            <span class="frequency-xp">{{ xpReward }} XP per completion</span>
+          </button>
         </div>
 
         <div class="stats-section">
@@ -238,9 +260,8 @@ function handleNextTask() {
           </div>
 
           <div class="stat-item">
-            <span class="stat-label">XP Earned:</span>
-            <!-- TODO: We might need a way to track cumulative xp, as this is probably xp per complete? -->
-            <span class="stat-value">{{ editedTask.xp }}</span>
+            <span class="stat-label">XP per Completion:</span>
+            <span class="stat-value">{{ xpReward }} XP</span>
           </div>
 
           <div class="stat-item">
@@ -462,6 +483,41 @@ function handleNextTask() {
       }
     }
 
+    .frequency-toggle-btn {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+
+      &:hover {
+        border-color: var(--accent-color-tertiary);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+
+      .frequency-label {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--accent-color-quaternary);
+        text-transform: capitalize;
+      }
+
+      .frequency-xp {
+        font-size: 13px;
+        color: #666;
+        font-weight: 600;
+      }
+    }
+
     .complete-toggle-btn {
       width: 100%;
       padding: 12px 16px;
@@ -472,7 +528,7 @@ function handleNextTask() {
       font-weight: bold;
       color: var(--accent-color-quaternary);
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: all 0.2s ease;
 
       &:hover {
         background-color: #e0f2fe;
@@ -481,14 +537,18 @@ function handleNextTask() {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       }
 
-      &.active {
-        background-color: var(--accent-color-primary);
-        border-color: var(--accent-color-primary);
-        color: white;
+      &:active {
+        transform: translateY(0);
+      }
+
+      &.completed {
+        background-color: #ffe0e0;
+        border-color: #ff6b6b;
+        color: #d63031;
 
         &:hover {
-          background-color: var(--accent-color-secondary);
-          border-color: var(--accent-color-secondary);
+          background-color: #ffcccc;
+          border-color: #ff5252;
         }
       }
     }
