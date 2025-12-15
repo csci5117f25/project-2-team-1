@@ -11,6 +11,7 @@ const isActive = computed(() => {
 });
 </script>
 <template>
+  <p v-if="!isActive">Complete all of your tasks today to increase your streak!</p>
   <div class="streak-container" :class="{ inactive: !isActive }">
     <p class="fire-emoji">🔥</p>
     <div>
