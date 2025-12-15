@@ -2,21 +2,14 @@
 import { computed, ref, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
-import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
-import {
-  createTask,
-  updateTask,
-  toggleTaskComplete,
-  getUserTasks,
-  isCompletedToday,
-  deleteTask,
-} from "@/database/database";
 import type Task from "@/interfaces/Task";
 import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
+import TaskList from "@/components/TaskList.vue";
+import { createTask } from "@/database/database";
 
 const showEmojiPicker = ref(false);
 
@@ -33,7 +26,6 @@ const statsDocRef = computed(() => {
   return doc(db, "users", user.value.uid, "stats", "current");
 });
 
-const tasks = await getUserTasks();
 const statsRef = useDocument<{ xp: number }>(statsDocRef);
 
 // leveling calculations
@@ -71,55 +63,6 @@ const cycleDraftFrequency = () => {
     draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
   }
 };
-
-const handleCheck = async (taskId: string) => {
-  await toggleTaskComplete(taskId);
-};
-
-const openTaskModal = (task: Task & { id: string }) => {
-  selectedTask.value = { ...task, id: task.id };
-  isModalOpen.value = true;
-};
-
-const closeModal = () => {
-  isModalOpen.value = false;
-  selectedTask.value = null;
-};
-
-const handleSave = async (updatedTask: {
-  name: string;
-  icon: string;
-  frequency: string;
-  id: string;
-}) => {
-  await updateTask(updatedTask.id, updatedTask);
-  closeModal();
-};
-
-const handleDelete = async (taskId: string) => {
-  await deleteTask(taskId);
-  closeModal();
-};
-
-const handleComplete = async (taskId: string) => {
-  await toggleTaskComplete(taskId);
-};
-
-const handleNavigate = (task: Task & { id: string }) => {
-  selectedTask.value = { ...task, id: task.id };
-};
-
-const handleTaskCardClick = async (task: Task & { id: string }, event: MouseEvent) => {
-  const target = event.target as HTMLElement;
-  if (target.closest(".menu-btn")) {
-    return;
-  }
-  if (isCompletedToday(task)) {
-    return;
-  }
-
-  await handleCheck(task.id);
-};
 </script>
 
 <template>
@@ -147,19 +90,19 @@ const handleTaskCardClick = async (task: Task & { id: string }, event: MouseEven
         <ContributionGraph />
       </div>
 
-      <div class="section-header">
-        <h2>Your Tasks</h2>
-        <button
-          class="add-btn"
-          @click="toggleTaskCreation"
-          :class="{ 'cancel-mode': draftTask }"
-          aria-label="Add new task"
-        >
-          <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
-        </button>
-      </div>
+      <TaskList :statsView="true" :draftTask="draftTask">
+        <div class="section-header">
+          <h2>Your Tasks</h2>
+          <button
+            class="add-btn"
+            @click="toggleTaskCreation"
+            :class="{ 'cancel-mode': draftTask }"
+            aria-label="Add new task"
+          >
+            <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
+          </button>
+        </div>
 
-      <div class="task-list">
         <div v-if="draftTask" class="task-card draft-card">
           <div class="checkbox-container">
             <button class="icon-btn save-btn" @click="saveDraft" title="Save Task">
@@ -197,55 +140,8 @@ const handleTaskCardClick = async (task: Task & { id: string }, event: MouseEven
             </button>
           </div>
         </div>
-
-        <div
-          v-for="task in tasks"
-          :key="task.id"
-          class="task-card"
-          :class="{ completed: isCompletedToday(task) }"
-          @click="handleTaskCardClick(task as Task & { id: string }, $event)"
-        >
-          <div class="checkbox-container">
-            <input
-              type="checkbox"
-              :checked="isCompletedToday(task)"
-              @change="handleCheck(task.id)"
-            />
-          </div>
-
-          <span class="task-emoji">
-            {{ task.icon }}
-          </span>
-
-          <div class="task-details">
-            <span class="task-name">{{ task.name }}</span>
-          </div>
-
-          <button
-            class="menu-btn"
-            @click.stop="openTaskModal(task as Task & { id: string })"
-            title="Task details"
-          >
-            <i class="fa-solid fa-ellipsis"></i>
-          </button>
-        </div>
-
-        <div v-if="tasks?.length === 0 && !draftTask" class="placeholder-state">
-          <p>No tasks yet. Create one to get started!</p>
-        </div>
-      </div>
+      </TaskList>
     </div>
-
-    <TaskDetailsModal
-      :task="selectedTask"
-      :isOpen="isModalOpen"
-      :tasks="tasks as (Task & { id: string })[]"
-      @close="closeModal"
-      @save="handleSave"
-      @delete="handleDelete"
-      @complete="handleComplete"
-      @navigate="handleNavigate"
-    />
   </div>
 </template>
 
@@ -330,190 +226,5 @@ const handleTaskCardClick = async (task: Task & { id: string }, event: MouseEven
     color: var(--accent-color-quaternary);
     margin: 0;
   }
-}
-
-.add-btn {
-  background-color: var(--accent-color-primary);
-  color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 14px;
-  transition: background-color 0.2s;
-
-  &:hover {
-    background-color: var(--accent-color-quaternary);
-  }
-
-  &.cancel-mode {
-    background-color: #ed3c4b;
-    &:hover {
-      background-color: #df3e16;
-    }
-  }
-}
-
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.task-card {
-  position: relative;
-  background: white;
-  padding: 1.25rem;
-  border-radius: 12px;
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  cursor: pointer;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-
-  &.completed {
-    background-color: #f8f9fa;
-    opacity: 0.85;
-    cursor: default;
-    .task-name {
-      text-decoration: line-through;
-      color: #999;
-    }
-  }
-
-  &.draft-card {
-    border: 2px solid var(--accent-color-tertiary);
-    z-index: 10;
-    cursor: default;
-  }
-}
-
-.checkbox-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-
-  input {
-    width: 20px;
-    height: 20px;
-    accent-color: var(--accent-color-primary);
-    cursor: pointer;
-  }
-}
-
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  font-size: 1.1rem;
-
-  &.save-btn {
-    color: var(--accent-color-primary);
-    &:hover {
-      color: var(--accent-color-quaternary);
-    }
-  }
-}
-
-.task-details {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.task-name {
-  font-size: 1rem;
-  font-family: inherit;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.freq-badge {
-  background: #f0f0f0;
-  border: none;
-  padding: 0.3rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  color: #666;
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-
-.menu-btn {
-  background: none;
-  border: none;
-  padding: 0.5rem;
-  cursor: pointer;
-  color: #999;
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s;
-  width: 32px;
-  height: 32px;
-
-  &:hover {
-    background-color: #f0f0f0;
-    color: var(--accent-color-primary);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-}
-
-.placeholder-state {
-  text-align: center;
-  color: #999;
-  padding: 2rem;
-  background: white;
-  border-radius: 10px;
-}
-
-@media (max-width: 480px) {
-  .date-header {
-    font-size: 1.2rem;
-  }
-  .task-card {
-    padding: 0.8rem;
-  }
-  .task-name {
-    font-size: 0.95rem;
-  }
-  .freq-badge {
-    padding: 0.2rem 0.6rem;
-    font-size: 0.7rem;
-  }
-}
-
-.task-emoji {
-  font-size: 1.5rem;
-}
-
-.emoji-picker-wrapper {
-  position: absolute;
-  top: -260px;
-  left: 0;
 }
 </style>
