@@ -2,26 +2,29 @@
 import { computed, ref, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
+import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
 import {
   createTask,
   updateTask,
   toggleTaskComplete,
   getUserTasks,
   isCompletedToday,
+  deleteTask,
 } from "@/database/database";
 import type Task from "@/interfaces/Task";
 import { doc } from "firebase/firestore";
-import type { DocumentData } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
-import StreakWidget from "@/components/StreakWidget.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const showEmojiPicker = ref(false);
 
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
+
+const selectedTask = ref<(Task & { id: string }) | null>(null);
+const isModalOpen = ref(false);
 
 const user = useCurrentUser();
 
@@ -69,17 +72,53 @@ const cycleDraftFrequency = () => {
   }
 };
 
-const updateTaskName = (task: DocumentData, newName: string) => {
-  updateTask(task.id, { name: newName });
+const handleCheck = async (taskId: string) => {
+  await toggleTaskComplete(taskId);
 };
 
-const cycleFrequency = (task: DocumentData) => {
-  const next = task.frequency === "daily" ? "monthly" : "daily";
-  updateTask(task.id, { frequency: next });
+const openTaskModal = (task: Task & { id: string }) => {
+  selectedTask.value = { ...task, id: task.id };
+  isModalOpen.value = true;
 };
 
-const handleCheck = (task: DocumentData) => {
-  toggleTaskComplete(task.id);
+const closeModal = () => {
+  isModalOpen.value = false;
+  selectedTask.value = null;
+};
+
+const handleSave = async (updatedTask: {
+  name: string;
+  icon: string;
+  frequency: string;
+  id: string;
+}) => {
+  await updateTask(updatedTask.id, updatedTask);
+  closeModal();
+};
+
+const handleDelete = async (taskId: string) => {
+  await deleteTask(taskId);
+  closeModal();
+};
+
+const handleComplete = async (taskId: string) => {
+  await toggleTaskComplete(taskId);
+};
+
+const handleNavigate = (task: Task & { id: string }) => {
+  selectedTask.value = { ...task, id: task.id };
+};
+
+const handleTaskCardClick = async (task: Task & { id: string }, event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+  if (target.closest(".menu-btn")) {
+    return;
+  }
+  if (isCompletedToday(task)) {
+    return;
+  }
+
+  await handleCheck(task.id);
 };
 </script>
 
@@ -88,7 +127,6 @@ const handleCheck = (task: DocumentData) => {
     <Navbar />
 
     <div class="content-container">
-      <StreakWidget />
 
       <div class="card stats-card">
         <div class="stats-header">
@@ -165,9 +203,14 @@ const handleCheck = (task: DocumentData) => {
           :key="task.id"
           class="task-card"
           :class="{ completed: isCompletedToday(task) }"
+          @click="handleTaskCardClick(task as Task & { id: string }, $event)"
         >
           <div class="checkbox-container">
-            <input type="checkbox" :checked="isCompletedToday(task)" @change="handleCheck(task)" />
+            <input
+              type="checkbox"
+              :checked="isCompletedToday(task)"
+              @change="handleCheck(task.id)"
+            />
           </div>
 
           <span class="task-emoji">
@@ -175,17 +218,16 @@ const handleCheck = (task: DocumentData) => {
           </span>
 
           <div class="task-details">
-            <input
-              class="task-name"
-              type="text"
-              :value="task.name"
-              placeholder="Task name..."
-              @input="(e) => updateTaskName(task, (e.target as HTMLInputElement).value)"
-            />
-            <button class="freq-badge" @click="cycleFrequency(task)">
-              {{ task.frequency }}
-            </button>
+            <span class="task-name">{{ task.name }}</span>
           </div>
+
+          <button
+            class="menu-btn"
+            @click.stop="openTaskModal(task as Task & { id: string })"
+            title="Task details"
+          >
+            <i class="fa-solid fa-ellipsis"></i>
+          </button>
         </div>
 
         <div v-if="tasks?.length === 0 && !draftTask" class="placeholder-state">
@@ -193,6 +235,17 @@ const handleCheck = (task: DocumentData) => {
         </div>
       </div>
     </div>
+
+    <TaskDetailsModal
+      :task="selectedTask"
+      :isOpen="isModalOpen"
+      :tasks="tasks as (Task & { id: string })[]"
+      @close="closeModal"
+      @save="handleSave"
+      @delete="handleDelete"
+      @complete="handleComplete"
+      @navigate="handleNavigate"
+    />
   </div>
 </template>
 
@@ -314,11 +367,12 @@ const handleCheck = (task: DocumentData) => {
 .task-card {
   position: relative;
   background: white;
-  padding: 1rem;
-  border-radius: 10px;
+  padding: 1.25rem;
+  border-radius: 12px;
   display: flex;
   gap: 1rem;
   align-items: center;
+  cursor: pointer;
   transition:
     transform 0.2s,
     box-shadow 0.2s;
@@ -331,6 +385,7 @@ const handleCheck = (task: DocumentData) => {
   &.completed {
     background-color: #f8f9fa;
     opacity: 0.85;
+    cursor: default;
     .task-name {
       text-decoration: line-through;
       color: #999;
@@ -340,6 +395,7 @@ const handleCheck = (task: DocumentData) => {
   &.draft-card {
     border: 2px solid var(--accent-color-tertiary);
     z-index: 10;
+    cursor: default;
   }
 }
 
@@ -379,20 +435,16 @@ const handleCheck = (task: DocumentData) => {
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 .task-name {
-  border: none;
   font-size: 1rem;
   font-family: inherit;
   width: 100%;
-  background: transparent;
-  outline: none;
-  padding: 0.4rem 0.2rem;
-
-  &:focus {
-    border-bottom: 2px solid var(--accent-color-tertiary);
-  }
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .freq-badge {
@@ -403,12 +455,31 @@ const handleCheck = (task: DocumentData) => {
   font-size: 0.75rem;
   color: #666;
   text-transform: capitalize;
-  cursor: pointer;
   white-space: nowrap;
-  transition: background 0.2s;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: #999;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
 
   &:hover {
-    background: #e0e0e0;
+    background-color: #f0f0f0;
+    color: var(--accent-color-primary);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 }
 
