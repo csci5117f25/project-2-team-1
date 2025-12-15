@@ -35,9 +35,9 @@ async function handleSave(updatedTask: {
   icon: string;
   frequency: string;
   id: string;
-}) => {
+}) {
   await updateTask(updatedTask.id, updatedTask);
-};
+}
 
 async function handleDelete(taskId: string) {
   await deleteTask(taskId);
