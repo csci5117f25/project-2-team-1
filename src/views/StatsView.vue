@@ -7,6 +7,7 @@ import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
+import StreakWidget from "@/components/StreakWidget.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 import TaskList from "@/components/TaskList.vue";
 import { createTask } from "@/database/database";
@@ -70,6 +71,7 @@ const cycleDraftFrequency = () => {
     <Navbar />
 
     <div class="content-container">
+      <StreakWidget />
 
       <div class="card stats-card">
         <div class="stats-header">

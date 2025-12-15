@@ -166,7 +166,17 @@ async function onDeleteAccount() {
 }
 
 button {
-  margin-top: 1rem
+  background-color: var(--danger-color);
+  color: white;
+  padding: 0.8rem 1.6rem 0.8rem 1.6rem;
+  border: none;
+  border-radius: 0.5rem;
+  margin-top: 2.5rem;
+
+  &:hover {
+    cursor: pointer;
+    background-color: var(--danger-color-hover);
+  }
 }
 
 .spinner {
