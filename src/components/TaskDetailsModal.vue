@@ -542,13 +542,13 @@ function handleNextTask() {
       }
 
       &.completed {
-        background-color: #ffe0e0;
-        border-color: #ff6b6b;
-        color: #d63031;
+        background-color: var(--danger-color-light);
+        border-color: var(--danger-color);
+        color: var(--danger-color-hover);
 
         &:hover {
-          background-color: #ffcccc;
-          border-color: #ff5252;
+          background-color: var(--danger-color-light);
+          border-color: var(--danger-color);
         }
       }
     }
@@ -643,11 +643,11 @@ function handleNextTask() {
     }
 
     &.btn-delete {
-      background-color: #dd3344;
+      background-color: var(--danger-color);
       color: white;
 
       &:hover {
-        background-color: #bd1f2f;
+        background-color: var(--danger-color-hover);
       }
     }
   }

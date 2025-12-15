@@ -165,11 +165,11 @@ function handleKeydown(event: KeyboardEvent) {
     }
 
     &.btn-delete {
-      background-color: #dd3344;
+      background-color: var(--danger-color);
       color: white;
 
       &:hover {
-        background-color: #bd1f2f;
+        background-color: var(--danger-color-hover);
       }
     }
     &.btn-secondary {

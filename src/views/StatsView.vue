@@ -370,9 +370,9 @@ const currentDateDisplay = computed(() => {
   }
 
   &.cancel-mode {
-    background-color: #ed3c4b;
+    background-color: var(--danger-color);
     &:hover {
-      background-color: #df3e16;
+      background-color: var(--danger-color-hover);
     }
   }
 }
