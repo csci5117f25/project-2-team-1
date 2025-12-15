@@ -75,7 +75,7 @@ const handleCheck = (task: DocumentData, isChecked: boolean) => {
       class="task-card"
       :class="{ completed: !statsView ? isCompletedToday(task) : false }"
     >
-      <div v-if="!statsView" class="checkbox-container">
+      <div class="checkbox-container">
         <input
           type="checkbox"
           :checked="isCompletedToday(task)"
