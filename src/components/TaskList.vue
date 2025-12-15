@@ -28,7 +28,7 @@ function closeModal() {
   selectedTask.value = null;
 }
 
-async function handleSave(updatedTask: Task & { id: string }) {
+async function handleSave(updatedTask: { id: string, name?: string, icon?: string, frequency?: string }) {
   await updateTask(updatedTask.id, updatedTask);
   closeModal();
 }

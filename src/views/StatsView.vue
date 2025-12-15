@@ -142,17 +142,6 @@ const cycleDraftFrequency = () => {
         </div>
       </TaskList>
     </div>
-
-    <TaskDetailsModal
-      :task="selectedTask"
-      :isOpen="isModalOpen"
-      :tasks="tasks as (Task & { id: string })[]"
-      @close="closeModal"
-      @save="handleSave"
-      @delete="handleDelete"
-      @complete="handleComplete"
-      @navigate="handleNavigate"
-    />
   </div>
 </template>
 
