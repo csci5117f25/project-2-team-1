@@ -30,7 +30,7 @@ function closeModal() {
   selectedTask.value = null;
 }
 
-const handleSave = async (updatedTask: {
+async function handleSave(updatedTask: {
   name: string;
   icon: string;
   frequency: string;

@@ -73,8 +73,8 @@ const cycleDraftFrequency = () => {
   }
 };
 
-const handleCheck = (taskId: string) => {
-  toggleTaskComplete(taskId);
+const handleCheck = async (taskId: string) => {
+  await toggleTaskComplete(taskId);
 };
 
 const openTaskModal = (task: Task & { id: string }) => {
@@ -110,7 +110,7 @@ const handleNavigate = (task: Task & { id: string }) => {
   selectedTask.value = { ...task, id: task.id };
 };
 
-const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => {
+const handleTaskCardClick = async (task: Task & { id: string }, event: MouseEvent) => {
   const target = event.target as HTMLElement;
   if (target.closest(".menu-btn")) {
     return;
@@ -119,7 +119,7 @@ const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => 
     return;
   }
 
-  handleCheck(task.id);
+  await handleCheck(task.id);
 };
 </script>
 
@@ -211,7 +211,7 @@ const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => 
             <input
               type="checkbox"
               :checked="isCompletedToday(task)"
-              @click.stop="handleCheck(task.id)"
+              @change="handleCheck(task.id)"
             />
           </div>
 
