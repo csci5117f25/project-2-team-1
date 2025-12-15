@@ -6,7 +6,7 @@ import {
   getUserTasks,
   updateTask,
   deleteTask,
-  markTaskComplete,
+  toggleTaskComplete,
   isCompletedToday,
 } from "@/database/database";
 import StreakWidget from "@/components/StreakWidget.vue";
@@ -42,7 +42,7 @@ async function handleDelete(taskId: string) {
 }
 
 async function handleComplete(taskId: string) {
-  await markTaskComplete(taskId);
+  await toggleTaskComplete(taskId);
 }
 
 const currentDateDisplay = computed(() => {
