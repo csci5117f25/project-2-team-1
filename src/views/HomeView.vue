@@ -37,7 +37,6 @@ async function handleSave(updatedTask: {
   id: string;
 }) => {
   await updateTask(updatedTask.id, updatedTask);
-  closeModal();
 };
 
 async function handleDelete(taskId: string) {
