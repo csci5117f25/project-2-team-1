@@ -11,6 +11,7 @@ import Navbar from "@/components/NavbarComponent.vue";
 import Spinner from "@/components/SpinnerComponent.vue";
 import DeleteAccountModal from "@/components/DeleteAccountModal.vue";
 import router from "@/router";
+import CustomButton from "@/components/CustomButton.vue";
 
 const settingsLoaded = ref(false);
 const notificationsEnabled = ref(false);
@@ -88,7 +89,7 @@ async function onDeleteAccount() {
         <span class="switch-label">Notifications</span>
       </label>
 
-      <button @click="isDeletePopupOpen = true" type="button">Delete Account</button>
+      <CustomButton @click="isDeletePopupOpen = true">Delete Account</CustomButton>
     </div>
 
     <div v-else class="mobile-container spinner">
