@@ -11,6 +11,10 @@ import StreakWidget from "@/components/StreakWidget.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 import TaskList from "@/components/TaskList.vue";
 import { createTask } from "@/database/database";
+import { getPreMadeTasks } from "@/database/database";
+
+const preMadeTasks = ref(await getPreMadeTasks());
+console.log(preMadeTasks.value);
 
 const showEmojiPicker = ref(false);
 
@@ -18,6 +22,7 @@ const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
 const showCustomInput = ref(true);
 const customSelectValue = ref("");
+const selectedInput = ref("");
 
 const user = useCurrentUser();
 
@@ -57,13 +62,15 @@ const saveDraft = async () => {
     if (!draftTask.value?.name.trim()) return;
   } else {
     if (draftTask.value) {
-      draftTask.value.name = customSelectValue.value;
+      draftTask.value.name = selectedInput.value;
     }
   }
   if (draftTask.value) {
-      await createTask(draftTask.value);
+    console.log(draftTask.value);
+    await createTask(draftTask.value);
   }
   draftTask.value = null;
+  selectedInput.value = "custom";
   showCustomInput.value = true;
   customSelectValue.value = "";
 };
@@ -75,9 +82,6 @@ const handleSelect = async (event: Event) => {
     customSelectValue.value = "";
     await nextTick();
     draftInput.value?.focus();
-  }
-  else {
-    customSelectValue.value = eventValue;
   }
 };
 
@@ -172,11 +176,17 @@ const cycleDraftFrequency = () => {
             <select
               @focus="handleCustomInput"
               @change="handleSelect"
+              v-model="selectedInput"
               :class="`dropdown task-name ${showCustomInput ? 'dropdown-hidden' : ''}`"
             >
               <option value="custom">{{ customSelectValue }}</option>
-              <option value="option-1">Option 1</option>
-              <option value="option-2">Option 2</option>
+
+              <template :key="category.name" v-for="category in preMadeTasks">
+                <option disabled :value="category.name">{{ category.name }}</option>
+                <option v-for="item in category.items" :value="item" :key="item">
+                  {{ item }}
+                </option>
+              </template>
             </select>
             <button class="freq-badge" @click="cycleDraftFrequency">
               {{ draftTask.frequency }}
