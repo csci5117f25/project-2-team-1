@@ -2,7 +2,6 @@
 import { computed, ref, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
-import { createTask } from "@/database/database";
 import type Task from "@/interfaces/Task";
 import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
@@ -10,8 +9,7 @@ import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
 import StreakWidget from "@/components/StreakWidget.vue";
 import TaskList from "@/components/TaskList.vue";
-import { createTask } from "@/database/database";
-import { getPreMadeTasks } from "@/database/database";
+import { createTask, getPreMadeTasks } from "@/database/database";
 
 const preMadeTasks = ref(await getPreMadeTasks());
 console.log(preMadeTasks.value);
