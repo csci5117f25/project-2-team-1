@@ -362,6 +362,7 @@ const cycleDraftFrequency = () => {
   border: 2px solid var(--accent-color-tertiary);
   cursor: default;
   margin-bottom: 1rem;
+  z-index: 10;
 }
 
 .icon-btn {
