@@ -75,8 +75,8 @@ const saveDraft = async () => {
 };
 
 const handleSelect = async (event: Event) => {
-  const eventValue = (event.target as any).value;
-  if (eventValue === "custom") {
+  const target = event.target as HTMLSelectElement;
+  if (target.value === "custom") {
     showCustomInput.value = true;
     customSelectValue.value = "";
     await nextTick();
