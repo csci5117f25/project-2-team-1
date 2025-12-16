@@ -556,10 +556,7 @@ const cycleDraftFrequency = () => {
   background: transparent;
   outline: none;
   padding: 0.4rem 0.2rem;
-
-  &:focus {
-    border-bottom: 2px solid var(--accent-color-tertiary);
-  }
+  border-bottom: 2px solid var(--accent-color-tertiary);
 }
 
 .task-ideas-dropdown {
