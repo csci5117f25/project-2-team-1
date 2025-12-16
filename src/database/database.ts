@@ -471,9 +471,7 @@ export const getPreMadeTasks = async () => {
       const itemData = item.data();
       items.push(itemData.name);
     });
-    console.log(items);
     returnData.push({ name: categoryData.name, items: items });
   });
-  console.log(returnData);
   return returnData;
 };
