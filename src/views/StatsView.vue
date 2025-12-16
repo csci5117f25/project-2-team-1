@@ -8,6 +8,7 @@ import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
 import StreakWidget from "@/components/StreakWidget.vue";
+import "/node_modules/vue3-emoji-picker/dist/style.css";
 import TaskList from "@/components/TaskList.vue";
 import { createTask, getPreMadeTasks } from "@/database/database";
 
@@ -15,6 +16,7 @@ const preMadeTasks = ref(await getPreMadeTasks());
 console.log(preMadeTasks.value);
 
 const showEmojiPicker = ref(false);
+
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
 const showCustomInput = ref(true);
@@ -97,14 +99,6 @@ const cycleDraftFrequency = () => {
     draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
   }
 };
-
-const currentDateDisplay = computed(() => {
-  return new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-});
 </script>
 
 <template>
@@ -112,8 +106,6 @@ const currentDateDisplay = computed(() => {
     <Navbar />
 
     <div class="content-container">
-      <h1 class="date-header">{{ currentDateDisplay }}</h1>
-
       <StreakWidget />
 
       <div class="card stats-card">
@@ -135,20 +127,19 @@ const currentDateDisplay = computed(() => {
         <ContributionGraph />
       </div>
 
-      <div class="section-header">
-        <h2>Your Tasks</h2>
-        <button
-          class="add-btn"
-          @click="toggleTaskCreation"
-          :class="{ 'cancel-mode': draftTask }"
-          aria-label="Add new task"
-        >
-          <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
-        </button>
-      </div>
+      <TaskList :statsView="true" :draftTask="draftTask">
+        <div class="section-header">
+          <h2>Your Tasks</h2>
+          <button
+            class="add-btn"
+            @click="toggleTaskCreation"
+            :class="{ 'cancel-mode': draftTask }"
+            aria-label="Add new task"
+          >
+            <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
+          </button>
+        </div>
 
-      <TaskList>
-        <!-- Draft task card passed via slot -->
         <div v-if="draftTask" class="task-card draft-card">
           <div class="checkbox-container">
             <button class="icon-btn save-btn" @click="saveDraft" title="Save Task">
@@ -242,13 +233,6 @@ const currentDateDisplay = computed(() => {
   max-width: 800px;
   margin: 0 auto;
   padding: 1.5rem 1rem;
-}
-
-.date-header {
-  font-size: 1.5rem;
-  color: var(--accent-color-primary);
-  margin-bottom: 1.5rem;
-  font-weight: 600;
 }
 
 .card {
