@@ -459,3 +459,19 @@ export const getCompletedTasks = async (taskId?: string) => {
     return completedTasks;
   }
 };
+
+export const getPreMadeTasks = async () => {
+  const returnData: { name: string; items: string[] }[] = [];
+  const referenceCategories = await getDocs(collection(db, "task_categories"));
+  referenceCategories.forEach(async (category: DocumentData) => {
+    const categoryData = category.data();
+    const referenceItems = await getDocs(collection(db, "task_categories", category.id, "items"));
+    const items: string[] = [];
+    referenceItems.forEach(async (item: DocumentData) => {
+      const itemData = item.data();
+      items.push(itemData.name);
+    });
+    returnData.push({ name: categoryData.name, items: items });
+  });
+  return returnData;
+};

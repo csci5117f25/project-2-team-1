@@ -2,19 +2,26 @@
 import { computed, ref, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
-import { createTask } from "@/database/database";
 import type Task from "@/interfaces/Task";
 import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
 import StreakWidget from "@/components/StreakWidget.vue";
-import TaskList from "@/components/TaskList.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
+import TaskList from "@/components/TaskList.vue";
+import { createTask, getPreMadeTasks } from "@/database/database";
+
+const preMadeTasks = ref(await getPreMadeTasks());
+console.log(preMadeTasks.value);
 
 const showEmojiPicker = ref(false);
+
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
+const showCustomInput = ref(true);
+const customSelectValue = ref("");
+const selectedInput = ref("");
 
 const user = useCurrentUser();
 
@@ -50,9 +57,41 @@ const toggleTaskCreation = async () => {
 };
 
 const saveDraft = async () => {
-  if (!draftTask.value?.name.trim()) return;
-  await createTask(draftTask.value);
+  if (showCustomInput.value) {
+    if (!draftTask.value?.name.trim()) return;
+  } else {
+    if (draftTask.value) {
+      draftTask.value.name = selectedInput.value;
+    }
+  }
+  if (draftTask.value) {
+    console.log(draftTask.value);
+    await createTask(draftTask.value);
+  }
   draftTask.value = null;
+  selectedInput.value = "custom";
+  showCustomInput.value = true;
+  customSelectValue.value = "";
+};
+
+const handleSelect = async (event: Event) => {
+  const target = event.target as HTMLSelectElement;
+  if (target.value === "custom") {
+    showCustomInput.value = true;
+    customSelectValue.value = "";
+    await nextTick();
+    draftInput.value?.focus();
+  }
+};
+
+const handleCustomInput = async () => {
+  console.log(showCustomInput.value);
+  if (showCustomInput.value) {
+    if (draftTask.value) {
+      customSelectValue.value = draftTask.value.name;
+      showCustomInput.value = false;
+    }
+  }
 };
 
 const cycleDraftFrequency = () => {
@@ -60,14 +99,6 @@ const cycleDraftFrequency = () => {
     draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
   }
 };
-
-const currentDateDisplay = computed(() => {
-  return new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-});
 </script>
 
 <template>
@@ -75,8 +106,6 @@ const currentDateDisplay = computed(() => {
     <Navbar />
 
     <div class="content-container">
-      <h1 class="date-header">{{ currentDateDisplay }}</h1>
-
       <StreakWidget />
 
       <div class="card stats-card">
@@ -98,20 +127,19 @@ const currentDateDisplay = computed(() => {
         <ContributionGraph />
       </div>
 
-      <div class="section-header">
-        <h2>Your Tasks</h2>
-        <button
-          class="add-btn"
-          @click="toggleTaskCreation"
-          :class="{ 'cancel-mode': draftTask }"
-          aria-label="Add new task"
-        >
-          <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
-        </button>
-      </div>
+      <TaskList :statsView="true" :draftTask="draftTask">
+        <div class="section-header">
+          <h2>Your Tasks</h2>
+          <button
+            class="add-btn"
+            @click="toggleTaskCreation"
+            :class="{ 'cancel-mode': draftTask }"
+            aria-label="Add new task"
+          >
+            <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
+          </button>
+        </div>
 
-      <TaskList>
-        <!-- Draft task card passed via slot -->
         <div v-if="draftTask" class="task-card draft-card">
           <div class="checkbox-container">
             <button class="icon-btn save-btn" @click="saveDraft" title="Save Task">
@@ -137,13 +165,28 @@ const currentDateDisplay = computed(() => {
           <div class="task-details">
             <input
               ref="draftInput"
-              class="task-name"
+              :class="`task-name ${showCustomInput ? 'input' : 'input-hidden'}`"
               type="text"
               v-model="draftTask.name"
               placeholder="What do you need to do?"
               @keydown.enter="saveDraft"
               @keydown.esc="toggleTaskCreation"
             />
+            <select
+              @focus="handleCustomInput"
+              @change="handleSelect"
+              v-model="selectedInput"
+              :class="`dropdown task-name ${showCustomInput ? 'dropdown-hidden' : ''}`"
+            >
+              <option value="custom">{{ customSelectValue }}</option>
+
+              <template :key="category.name" v-for="category in preMadeTasks">
+                <option disabled :value="category.name">{{ category.name }}</option>
+                <option v-for="item in category.items" :value="item" :key="item">
+                  {{ item }}
+                </option>
+              </template>
+            </select>
             <button class="freq-badge" @click="cycleDraftFrequency">
               {{ draftTask.frequency }}
             </button>
@@ -160,17 +203,36 @@ const currentDateDisplay = computed(() => {
   background-color: var(--background-color);
 }
 
+.dropdown {
+  // https://stackoverflow.com/questions/38788848/positioning-of-an-arrow-in-an-html-select
+  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>")
+    no-repeat;
+  background-position: calc(100% - 1.5rem) center !important;
+  -moz-appearance: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  padding-right: 2rem !important;
+  border: none;
+  outline: none;
+  width: 100%;
+}
+
+.dropdown-hidden {
+  width: 10%;
+}
+
+.input {
+  width: 100%;
+}
+
+.input-hidden {
+  display: none;
+}
+
 .content-container {
   max-width: 800px;
   margin: 0 auto;
   padding: 1.5rem 1rem;
-}
-
-.date-header {
-  font-size: 1.5rem;
-  color: var(--accent-color-primary);
-  margin-bottom: 1.5rem;
-  font-weight: 600;
 }
 
 .card {

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed } from "vue";
+import { ref, computed, nextTick } from "vue";
 import TaskDetailsModal from "./TaskDetailsModal.vue";
 import {
   getUserTasks,
@@ -7,9 +7,19 @@ import {
   deleteTask,
   toggleTaskComplete,
   isCompletedToday,
+  createTask,
+  getPreMadeTasks,
 } from "@/database/database";
 import type Task from "@/interfaces/Task";
+import EmojiPicker from "vue3-emoji-picker";
+import "/node_modules/vue3-emoji-picker/dist/style.css";
 
+const preMadeTasks = ref(await getPreMadeTasks());
+console.log(preMadeTasks.value);
+const showEmojiPicker = ref(false);
+const draftTask = ref<Task | null>(null);
+const draftInput = ref<HTMLInputElement | null>(null);
+const selectedInput = ref("");
 const selectedTask = ref<(Task & { id: string }) | null>(null);
 const isModalOpen = ref(false);
 
@@ -132,11 +142,117 @@ const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => 
 
   handleCheck(task.id);
 };
+
+const toggleTaskCreation = async () => {
+  if (draftTask.value) {
+    draftTask.value = null;
+    selectedInput.value = "";
+  } else {
+    draftTask.value = {
+      frequency: "daily",
+      name: "",
+      icon: "",
+      last_completed_time: 0,
+      current_streak: 0,
+      xp: 10,
+      created_at: Date.now(),
+    };
+    await nextTick();
+    draftInput.value?.focus();
+  }
+};
+
+const saveDraft = async () => {
+  if (!draftTask.value?.name.trim()) return;
+
+  console.log(draftTask.value);
+  await createTask(draftTask.value);
+
+  draftTask.value = null;
+  selectedInput.value = "";
+};
+
+const handlePresetSelect = (event: Event) => {
+  const target = event.target as HTMLSelectElement;
+  if (target.value && draftTask.value) {
+    draftTask.value.name = target.value;
+    selectedInput.value = "";
+    nextTick(() => {
+      draftInput.value?.focus();
+    });
+  }
+};
+
+const cycleDraftFrequency = () => {
+  if (draftTask.value) {
+    draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
+  }
+};
 </script>
 
 <template>
   <div class="task-list">
-    <slot></slot>
+    <div class="section-header">
+      <h2>Your Tasks</h2>
+      <button
+        class="add-btn"
+        @click="toggleTaskCreation"
+        :class="{ 'cancel-mode': draftTask }"
+        aria-label="Add new task"
+      >
+        <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
+      </button>
+    </div>
+
+    <div v-if="draftTask" class="task-card draft-card">
+      <div class="checkbox-container">
+        <button class="icon-btn save-btn" @click="saveDraft" title="Save Task">
+          <i class="fa-solid fa-check"></i>
+        </button>
+      </div>
+
+      <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
+        {{ draftTask.icon || "😎" }}
+      </button>
+
+      <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
+        <EmojiPicker
+          @select="
+            (e: { i: string }) => {
+              draftTask!.icon = e.i;
+              showEmojiPicker = false;
+            }
+          "
+        ></EmojiPicker>
+      </div>
+
+      <div class="task-details">
+        <input
+          ref="draftInput"
+          class="task-input"
+          type="text"
+          v-model="draftTask.name"
+          placeholder="What do you need to do?"
+          @keydown.enter="saveDraft"
+          @keydown.esc="toggleTaskCreation"
+        />
+
+        <select @change="handlePresetSelect" v-model="selectedInput" class="task-ideas-dropdown">
+          <option value="" disabled selected>Task Ideas</option>
+
+          <template :key="category.name" v-for="category in preMadeTasks">
+            <option disabled :value="category.name">{{ category.name }}</option>
+            <option v-for="item in category.items" :value="item" :key="item">
+              {{ item }}
+            </option>
+          </template>
+        </select>
+
+        <button class="freq-badge" @click="cycleDraftFrequency">
+          {{ draftTask.frequency }}
+        </button>
+      </div>
+    </div>
 
     <transition-group name="task-move" tag="div" class="tasks-container">
       <div
@@ -193,6 +309,146 @@ const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => 
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+
+  h2 {
+    font-size: 1.4rem;
+    color: var(--accent-color-quaternary);
+    margin: 0;
+  }
+}
+
+.add-btn {
+  background-color: var(--accent-color-primary);
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: var(--accent-color-quaternary);
+  }
+
+  &.cancel-mode {
+    background-color: var(--danger-color);
+
+    &:hover {
+      background-color: var(--danger-color-hover);
+    }
+  }
+}
+
+.draft-card {
+  position: relative;
+  background: white;
+  padding: 1.25rem;
+  border-radius: 12px;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  border: 2px solid var(--accent-color-tertiary);
+  cursor: default;
+  margin-bottom: 1rem;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1.1rem;
+
+  &.save-btn {
+    color: var(--accent-color-primary);
+
+    &:hover {
+      color: var(--accent-color-quaternary);
+    }
+  }
+}
+
+.emoji-trigger {
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+}
+
+.emoji-picker-wrapper {
+  position: absolute;
+  top: -260px;
+  left: 50px;
+  z-index: 1000;
+}
+
+.task-input {
+  flex: 1;
+  border: none;
+  font-size: 1rem;
+  font-family: inherit;
+  background: transparent;
+  outline: none;
+  padding: 0.4rem 0.2rem;
+
+  &:focus {
+    border-bottom: 2px solid var(--accent-color-tertiary);
+  }
+}
+
+.task-dropdown {
+  flex: 1;
+  font-size: 1rem;
+  font-family: inherit;
+  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>")
+    no-repeat;
+  background-position: calc(100% - 0.5rem) center;
+  -moz-appearance: none;
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0.4rem 2rem 0.4rem 0.2rem;
+  border: none;
+  outline: none;
+  cursor: pointer;
+
+  &:focus {
+    border-bottom: 2px solid var(--accent-color-tertiary);
+  }
+}
+
+.freq-badge {
+  background: #f0f0f0;
+  border: none;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: #666;
+  text-transform: capitalize;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #e0e0e0;
+  }
 }
 
 .tasks-container {
@@ -289,6 +545,49 @@ const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => 
   gap: 0.5rem;
   min-width: 0;
   overflow: hidden;
+}
+
+.task-input {
+  flex: 2;
+  min-width: 150px;
+  border: none;
+  font-size: 1rem;
+  font-family: inherit;
+  background: transparent;
+  outline: none;
+  padding: 0.4rem 0.2rem;
+
+  &:focus {
+    border-bottom: 2px solid var(--accent-color-tertiary);
+  }
+}
+
+.task-ideas-dropdown {
+  flex: 1;
+  min-width: 120px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>")
+    no-repeat;
+  background-position: calc(100% - 0.5rem) center;
+  -moz-appearance: none;
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0.4rem 1.5rem 0.4rem 0.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  color: #666;
+  background-color: #f8f8f8;
+
+  &:hover {
+    background-color: #f0f0f0;
+  }
+
+  &:focus {
+    border-color: var(--accent-color-tertiary);
+  }
 }
 
 .task-name {
