@@ -43,6 +43,12 @@ const isPending = (taskId: string): boolean => {
   return pendingToggles.value.has(taskId);
 };
 
+const clearInput = () => {
+  if (draftTask.value) {
+    draftTask.value.name = "";
+  }
+};
+
 const sortedTasks = computed<(Task & { id: string })[]>(() => {
   const taskList = (tasksData?.value || []) as (Task & { id: string })[];
   if (taskList.length === 0) return [];
@@ -212,28 +218,38 @@ const cycleDraftFrequency = () => {
       </div>
 
       <div class="task-details">
-        <input
-          ref="draftInput"
-          class="task-input"
-          type="text"
-          v-model="draftTask.name"
-          placeholder="What do you need to do?"
-          @keydown.enter="saveDraft"
-          @keydown.esc="toggleTaskCreation"
-        />
+        <div class="input-wrapper">
+          <input
+            ref="draftInput"
+            class="task-input"
+            type="text"
+            v-model="draftTask.name"
+            placeholder="What do you need to do?"
+            @keydown.enter="saveDraft"
+            @keydown.esc="toggleTaskCreation"
+          />
+          <button
+            class="small-btn add-btn draft-task"
+            @click="clearInput"
+            aria-label="Add new task"
+          >
+            <i class="fa-solid fa-eraser"></i>
+          </button>
+        </div>
 
         <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
           {{ draftTask.icon || "😎" }}
         </button>
 
         <select @change="handlePresetSelect" v-model="selectedInput" class="task-ideas-dropdown">
-          <option value="" disabled selected>Task Ideas</option>
+          <option class="dropdown-header" value="" disabled selected>Task Ideas</option>
 
           <template :key="category.name" v-for="category in preMadeTasks">
-            <option disabled :value="category.name">{{ category.name }}</option>
-            <option v-for="item in category.items" :value="item" :key="item">
-              {{ item }}
-            </option>
+            <optgroup :label="category.name">
+              <option v-for="item in category.items" :value="item" :key="item">
+                {{ item }}
+              </option>
+            </optgroup>
           </template>
         </select>
 
@@ -311,6 +327,10 @@ const cycleDraftFrequency = () => {
   gap: 1rem;
 }
 
+.dropdown-header {
+  font-style: italic;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -322,6 +342,19 @@ const cycleDraftFrequency = () => {
     color: var(--accent-color-quaternary);
     margin: 0;
   }
+}
+
+.input-wrapper {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  margin-right: 0.25rem;
+}
+
+.small-btn {
+  height: 24px !important;
+  width: 24px !important;
+  font-size: 10px !important;
 }
 
 .add-btn {
