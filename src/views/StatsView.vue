@@ -36,7 +36,7 @@ const progressPercent = computed(() => currentXP.value % 100);
 
 const handleUserExport = async () => {
   if (userDataDiv.value) {
-    const canvas = await html2canvas(userDataDiv.value);
+    const canvas = await html2canvas(userDataDiv.value, { scale: 2});
     const url = canvas.toDataURL();
     const a = document.createElement("a"); // https://stackoverflow.com/questions/11620698/how-to-trigger-a-file-download-when-clicking-an-html-button-or-javascript
     a.href = url;
