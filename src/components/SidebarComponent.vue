@@ -68,7 +68,9 @@ a {
   width: 100%;
   font-size: 1.2rem;
   border-top: 1px solid #cccccc;
-  transition: background-color 0.2s ease, padding-left 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    padding-left 0.2s ease;
 
   &#logout-btn {
     border-bottom-left-radius: 1rem;
@@ -137,7 +139,7 @@ a {
 
 @media (max-width: 480px) {
   .sidebar {
-    width: 100vw;
+    width: 80vw;
   }
 }
 
@@ -148,7 +150,7 @@ a {
   }
   to {
     transform: translateX(0);
-    box-shadow: -8px 0 24px rgba(0,0,0,0.25);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.25);
   }
 }
 </style>

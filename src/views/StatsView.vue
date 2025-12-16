@@ -2,30 +2,19 @@
 import { computed, ref, nextTick } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
-import TaskDetailsModal from "@/components/TaskDetailsModal.vue";
-import {
-  createTask,
-  updateTask,
-  toggleTaskComplete,
-  getUserTasks,
-  isCompletedToday,
-  deleteTask,
-} from "@/database/database";
+import { createTask } from "@/database/database";
 import type Task from "@/interfaces/Task";
 import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
 import StreakWidget from "@/components/StreakWidget.vue";
+import TaskList from "@/components/TaskList.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const showEmojiPicker = ref(false);
-
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
-
-const selectedTask = ref<(Task & { id: string }) | null>(null);
-const isModalOpen = ref(false);
 
 const user = useCurrentUser();
 
@@ -34,7 +23,6 @@ const statsDocRef = computed(() => {
   return doc(db, "users", user.value.uid, "stats", "current");
 });
 
-const tasks = await getUserTasks();
 const statsRef = useDocument<{ xp: number }>(statsDocRef);
 
 // leveling calculations
@@ -71,55 +59,6 @@ const cycleDraftFrequency = () => {
   if (draftTask.value) {
     draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
   }
-};
-
-const handleCheck = (taskId: string) => {
-  toggleTaskComplete(taskId);
-};
-
-const openTaskModal = (task: Task & { id: string }) => {
-  selectedTask.value = { ...task, id: task.id };
-  isModalOpen.value = true;
-};
-
-const closeModal = () => {
-  isModalOpen.value = false;
-  selectedTask.value = null;
-};
-
-const handleSave = async (updatedTask: {
-  name: string;
-  icon: string;
-  frequency: string;
-  id: string;
-}) => {
-  await updateTask(updatedTask.id, updatedTask);
-  closeModal();
-};
-
-const handleDelete = async (taskId: string) => {
-  await deleteTask(taskId);
-  closeModal();
-};
-
-const handleComplete = async (taskId: string) => {
-  await toggleTaskComplete(taskId);
-};
-
-const handleNavigate = (task: Task & { id: string }) => {
-  selectedTask.value = { ...task, id: task.id };
-};
-
-const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => {
-  const target = event.target as HTMLElement;
-  if (target.closest(".menu-btn")) {
-    return;
-  }
-  if (isCompletedToday(task)) {
-    return;
-  }
-
-  handleCheck(task.id);
 };
 
 const currentDateDisplay = computed(() => {
@@ -171,7 +110,8 @@ const currentDateDisplay = computed(() => {
         </button>
       </div>
 
-      <div class="task-list">
+      <TaskList>
+        <!-- Draft task card passed via slot -->
         <div v-if="draftTask" class="task-card draft-card">
           <div class="checkbox-container">
             <button class="icon-btn save-btn" @click="saveDraft" title="Save Task">
@@ -209,55 +149,8 @@ const currentDateDisplay = computed(() => {
             </button>
           </div>
         </div>
-
-        <div
-          v-for="task in tasks"
-          :key="task.id"
-          class="task-card"
-          :class="{ completed: isCompletedToday(task) }"
-          @click="handleTaskCardClick(task as Task & { id: string }, $event)"
-        >
-          <div class="checkbox-container">
-            <input
-              type="checkbox"
-              :checked="isCompletedToday(task)"
-              @click.stop="handleCheck(task.id)"
-            />
-          </div>
-
-          <span class="task-emoji">
-            {{ task.icon }}
-          </span>
-
-          <div class="task-details">
-            <span class="task-name">{{ task.name }}</span>
-          </div>
-
-          <button
-            class="menu-btn"
-            @click.stop="openTaskModal(task as Task & { id: string })"
-            title="Task details"
-          >
-            <i class="fa-solid fa-ellipsis"></i>
-          </button>
-        </div>
-
-        <div v-if="tasks?.length === 0 && !draftTask" class="placeholder-state">
-          <p>No tasks yet. Create one to get started!</p>
-        </div>
-      </div>
+      </TaskList>
     </div>
-
-    <TaskDetailsModal
-      :task="selectedTask"
-      :isOpen="isModalOpen"
-      :tasks="tasks as (Task & { id: string })[]"
-      @close="closeModal"
-      @save="handleSave"
-      @delete="handleDelete"
-      @complete="handleComplete"
-      @navigate="handleNavigate"
-    />
   </div>
 </template>
 
@@ -303,12 +196,14 @@ const currentDateDisplay = computed(() => {
 .level-badge {
   display: flex;
   flex-direction: column;
+
   .level-label {
     font-size: 0.75rem;
     font-weight: 600;
     color: #888;
     text-transform: uppercase;
   }
+
   .level-number {
     font-size: 2.5rem;
     font-weight: 600;
@@ -320,6 +215,7 @@ const currentDateDisplay = computed(() => {
 .xp-text {
   font-size: 0.9rem;
   color: #333;
+
   .muted {
     color: #999;
   }
@@ -344,6 +240,7 @@ const currentDateDisplay = computed(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+
   h2 {
     font-size: 1.4rem;
     color: var(--accent-color-quaternary);
@@ -371,19 +268,14 @@ const currentDateDisplay = computed(() => {
 
   &.cancel-mode {
     background-color: var(--danger-color);
+
     &:hover {
       background-color: var(--danger-color-hover);
     }
   }
 }
 
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.task-card {
+.draft-card {
   position: relative;
   background: white;
   padding: 1.25rem;
@@ -391,31 +283,9 @@ const currentDateDisplay = computed(() => {
   display: flex;
   gap: 1rem;
   align-items: center;
-  cursor: pointer;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-
-  &.completed {
-    background-color: #f8f9fa;
-    opacity: 0.85;
-    cursor: default;
-    .task-name {
-      text-decoration: line-through;
-      color: #999;
-    }
-  }
-
-  &.draft-card {
-    border: 2px solid var(--accent-color-tertiary);
-    z-index: 10;
-    cursor: default;
-  }
+  border: 2px solid var(--accent-color-tertiary);
+  cursor: default;
+  margin-bottom: 1rem;
 }
 
 .checkbox-container {
@@ -424,13 +294,6 @@ const currentDateDisplay = computed(() => {
   justify-content: center;
   width: 24px;
   height: 24px;
-
-  input {
-    width: 20px;
-    height: 20px;
-    accent-color: var(--accent-color-primary);
-    cursor: pointer;
-  }
 }
 
 .icon-btn {
@@ -442,10 +305,31 @@ const currentDateDisplay = computed(() => {
 
   &.save-btn {
     color: var(--accent-color-primary);
+
     &:hover {
       color: var(--accent-color-quaternary);
     }
   }
+}
+
+.emoji-trigger {
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+}
+
+.emoji-picker-wrapper {
+  position: absolute;
+  top: -260px;
+  left: 50px;
+  z-index: 1000;
 }
 
 .task-details {
@@ -454,16 +338,20 @@ const currentDateDisplay = computed(() => {
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
-  overflow: hidden;
 }
 
 .task-name {
+  flex: 1;
+  border: none;
   font-size: 1rem;
   font-family: inherit;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  background: transparent;
+  outline: none;
+  padding: 0.4rem 0.2rem;
+
+  &:focus {
+    border-bottom: 2px solid var(--accent-color-tertiary);
+  }
 }
 
 .freq-badge {
@@ -474,65 +362,18 @@ const currentDateDisplay = computed(() => {
   font-size: 0.75rem;
   color: #666;
   text-transform: capitalize;
-  white-space: nowrap;
-}
-
-.menu-btn {
-  background: none;
-  border: none;
-  padding: 0.5rem;
   cursor: pointer;
-  color: #999;
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s;
-  width: 32px;
-  height: 32px;
+  white-space: nowrap;
+  transition: background 0.2s;
 
   &:hover {
-    background-color: #f0f0f0;
-    color: var(--accent-color-primary);
+    background: #e0e0e0;
   }
-
-  &:active {
-    transform: scale(0.95);
-  }
-}
-
-.placeholder-state {
-  text-align: center;
-  color: #999;
-  padding: 2rem;
-  background: white;
-  border-radius: 10px;
 }
 
 @media (max-width: 480px) {
   .date-header {
     font-size: 1.2rem;
   }
-  .task-card {
-    padding: 0.8rem;
-  }
-  .task-name {
-    font-size: 0.95rem;
-  }
-  .freq-badge {
-    padding: 0.2rem 0.6rem;
-    font-size: 0.7rem;
-  }
-}
-
-.task-emoji {
-  font-size: 1.5rem;
-}
-
-.emoji-picker-wrapper {
-  position: absolute;
-  top: -260px;
-  left: 0;
 }
 </style>
