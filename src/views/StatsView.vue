@@ -147,21 +147,6 @@ const cycleDraftFrequency = () => {
             </button>
           </div>
 
-          <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
-            {{ draftTask.icon || "😎" }}
-          </button>
-
-          <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
-            <EmojiPicker
-              @select="
-                (e: { i: string }) => {
-                  draftTask!.icon = e.i;
-                  showEmojiPicker = false;
-                }
-              "
-            ></EmojiPicker>
-          </div>
-
           <div class="task-details">
             <input
               ref="draftInput"
@@ -172,6 +157,9 @@ const cycleDraftFrequency = () => {
               @keydown.enter="saveDraft"
               @keydown.esc="toggleTaskCreation"
             />
+            <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
+              {{ draftTask.icon || "😎" }}
+            </button>
             <select
               @focus="handleCustomInput"
               @change="handleSelect"
@@ -190,6 +178,17 @@ const cycleDraftFrequency = () => {
             <button class="freq-badge" @click="cycleDraftFrequency">
               {{ draftTask.frequency }}
             </button>
+          </div>
+
+          <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
+            <EmojiPicker
+              @select="
+                (e: { i: string }) => {
+                  draftTask!.icon = e.i;
+                  showEmojiPicker = false;
+                }
+              "
+            ></EmojiPicker>
           </div>
         </div>
       </TaskList>
@@ -218,7 +217,7 @@ const cycleDraftFrequency = () => {
 }
 
 .dropdown-hidden {
-  width: 10%;
+  display: none;
 }
 
 .input {
@@ -410,10 +409,7 @@ const cycleDraftFrequency = () => {
   background: transparent;
   outline: none;
   padding: 0.4rem 0.2rem;
-
-  &:focus {
-    border-bottom: 2px solid var(--accent-color-tertiary);
-  }
+  border-bottom: 2px solid var(--accent-color-tertiary);
 }
 
 .freq-badge {
@@ -433,9 +429,67 @@ const cycleDraftFrequency = () => {
   }
 }
 
+@media (max-width: 768px) {
+  .content-container {
+    padding: 1rem 0.75rem;
+  }
+
+  .card {
+    padding: 1.25rem;
+  }
+
+  .draft-card {
+    padding: 1rem;
+  }
+
+  .task-details {
+    gap: 0.5rem;
+  }
+}
+
 @media (max-width: 480px) {
   .date-header {
     font-size: 1.2rem;
+  }
+
+  .draft-card {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .task-details {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .task-name {
+    font-size: 0.95rem;
+    flex-basis: 100%;
+  }
+
+  .emoji-trigger {
+    font-size: 1.25rem;
+    padding: 0.2rem 0.4rem;
+    flex-shrink: 0;
+    order: 1;
+  }
+
+  .dropdown {
+    flex: 1;
+    min-width: 0;
+    order: 2;
+  }
+
+  .freq-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.6rem;
+    flex-shrink: 0;
+    order: 3;
+  }
+
+  .emoji-picker-wrapper {
+    left: 0;
+    top: -260px;
   }
 }
 </style>

@@ -211,21 +211,6 @@ const cycleDraftFrequency = () => {
         </button>
       </div>
 
-      <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
-        {{ draftTask.icon || "😎" }}
-      </button>
-
-      <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
-        <EmojiPicker
-          @select="
-            (e: { i: string }) => {
-              draftTask!.icon = e.i;
-              showEmojiPicker = false;
-            }
-          "
-        ></EmojiPicker>
-      </div>
-
       <div class="task-details">
         <input
           ref="draftInput"
@@ -236,6 +221,10 @@ const cycleDraftFrequency = () => {
           @keydown.enter="saveDraft"
           @keydown.esc="toggleTaskCreation"
         />
+
+        <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
+          {{ draftTask.icon || "😎" }}
+        </button>
 
         <select @change="handlePresetSelect" v-model="selectedInput" class="task-ideas-dropdown">
           <option value="" disabled selected>Task Ideas</option>
@@ -251,6 +240,17 @@ const cycleDraftFrequency = () => {
         <button class="freq-badge" @click="cycleDraftFrequency">
           {{ draftTask.frequency }}
         </button>
+      </div>
+
+      <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
+        <EmojiPicker
+          @select="
+            (e: { i: string }) => {
+              draftTask!.icon = e.i;
+              showEmojiPicker = false;
+            }
+          "
+        ></EmojiPicker>
       </div>
     </div>
 
@@ -632,13 +632,81 @@ const cycleDraftFrequency = () => {
   border-radius: 10px;
 }
 
+@media (max-width: 768px) {
+  .draft-card {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .task-details {
+    flex-wrap: wrap;
+  }
+
+  .task-input {
+    min-width: 100px;
+  }
+
+  .task-ideas-dropdown {
+    min-width: 100px;
+  }
+}
+
 @media (max-width: 480px) {
   .task-card {
     padding: 0.8rem;
+    gap: 0.75rem;
+  }
+
+  .draft-card {
+    padding: 0.8rem;
+    gap: 0.75rem;
   }
 
   .task-name {
     font-size: 0.95rem;
+  }
+
+  .task-details {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .task-input {
+    flex-basis: 100%;
+    min-width: unset;
+  }
+
+  .emoji-trigger {
+    font-size: 1.25rem;
+    padding: 0.2rem 0.4rem;
+    flex-shrink: 0;
+    order: 1;
+  }
+
+  .task-ideas-dropdown {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+    order: 2;
+  }
+
+  .freq-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.6rem;
+    flex-shrink: 0;
+    order: 3;
+  }
+
+  .emoji-picker-wrapper {
+    left: 0;
+    right: 0;
+    top: -260px;
+  }
+
+  .menu-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
   }
 }
 </style>
