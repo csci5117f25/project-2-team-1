@@ -17,9 +17,6 @@ const showEmojiPicker = ref(false);
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
 
-const selectedTask = ref<(Task & { id: string }) | null>(null);
-const isModalOpen = ref(false);
-
 const user = useCurrentUser();
 
 const statsDocRef = computed(() => {
