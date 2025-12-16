@@ -1,30 +1,23 @@
 <script setup lang="ts">
-import { computed, ref, nextTick } from "vue";
+import { computed, ref } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
 import type Task from "@/interfaces/Task";
 import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
-import EmojiPicker from "vue3-emoji-picker";
 import StreakWidget from "@/components/StreakWidget.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 import TaskList from "@/components/TaskList.vue";
-import { createTask, getPreMadeTasks } from "@/database/database";
+import { getPreMadeTasks } from "@/database/database";
 import html2canvas from "html2canvas";
 import CustomButton from "@/components/CustomButton.vue";
 
 const preMadeTasks = ref(await getPreMadeTasks());
 console.log(preMadeTasks.value);
 
-const showEmojiPicker = ref(false);
-
 const draftTask = ref<Task | null>(null);
-const draftInput = ref<HTMLInputElement | null>(null);
 const userDataDiv = ref<HTMLElement | null>(null);
-const showCustomInput = ref(true);
-const customSelectValue = ref("");
-const selectedInput = ref("");
 
 const user = useCurrentUser();
 
@@ -41,24 +34,6 @@ const currentLevel = computed(() => Math.floor(currentXP.value / 100) + 1);
 const xpForNextLevel = computed(() => currentLevel.value * 100);
 const progressPercent = computed(() => currentXP.value % 100);
 
-const toggleTaskCreation = async () => {
-  if (draftTask.value) {
-    draftTask.value = null;
-  } else {
-    draftTask.value = {
-      frequency: "daily",
-      name: "",
-      icon: "",
-      last_completed_time: 0,
-      current_streak: 0,
-      xp: 10,
-      created_at: Date.now(),
-    };
-    await nextTick();
-    draftInput.value?.focus();
-  }
-};
-
 const handleUserExport = async () => {
   if (userDataDiv.value) {
     const canvas = await html2canvas(userDataDiv.value);
@@ -73,24 +48,6 @@ const handleUserExport = async () => {
     a.click();
     document.body.removeChild(a);
   }
-};
-
-const saveDraft = async () => {
-  if (showCustomInput.value) {
-    if (!draftTask.value?.name.trim()) return;
-  } else {
-    if (draftTask.value) {
-      draftTask.value.name = selectedInput.value;
-    }
-  }
-  if (draftTask.value) {
-    console.log(draftTask.value);
-    await createTask(draftTask.value);
-  }
-  draftTask.value = null;
-  selectedInput.value = "custom";
-  showCustomInput.value = true;
-  customSelectValue.value = "";
 };
 </script>
 
