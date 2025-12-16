@@ -137,7 +137,7 @@ a {
 
 @media (max-width: 480px) {
   .sidebar {
-    width: 80vw;
+    width: 100vw;
   }
 }
 

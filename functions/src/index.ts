@@ -1,12 +1,11 @@
 // Run `firebase deploy --only functions` to deploy any changes
-// Don't use default prettier formatting for this file
 
-import {setGlobalOptions} from "firebase-functions/v2";
-import {onSchedule} from "firebase-functions/v2/scheduler";
+import { setGlobalOptions } from "firebase-functions/v2";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
-setGlobalOptions({region: "us-central1", maxInstances: 10});
+setGlobalOptions({ region: "us-central1", maxInstances: 10 });
 
 admin.initializeApp();
 
@@ -22,10 +21,7 @@ export const sendDailyNotifications = onSchedule(
     const db = admin.firestore();
 
     // find users with notis enabled
-    const usersSnap = await db
-      .collectionGroup("settings")
-      .where("notifications", "==", true)
-      .get();
+    const usersSnap = await db.collectionGroup("settings").where("notifications", "==", true).get();
 
     const messages: admin.messaging.TokenMessage[] = [];
 
@@ -60,7 +56,7 @@ export const sendDailyNotifications = onSchedule(
         if (error.code === "messaging/registration-token-not-registered") {
           await cleanupToken(msg.token);
         } else {
-          logger.error("Failed to send", {token: msg.token, error});
+          logger.error("Failed to send", { token: msg.token, error });
         }
       })
     );
@@ -69,10 +65,7 @@ export const sendDailyNotifications = onSchedule(
   }
 );
 
-/**
- * Removes stale notification tokens from Firestore.
- * @param {string} token - The notification token to remove.
- */
+// Removes stale notification tokens
 async function cleanupToken(token: string) {
   const db = admin.firestore();
   const tokenDocs = await db
