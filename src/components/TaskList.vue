@@ -43,6 +43,13 @@ const isPending = (taskId: string): boolean => {
   return pendingToggles.value.has(taskId);
 };
 
+const clearInput = () => {
+  if (draftTask.value) {
+    draftTask.value.name = "";
+  }
+
+}
+
 const sortedTasks = computed<(Task & { id: string })[]>(() => {
   const taskList = (tasksData?.value || []) as (Task & { id: string })[];
   if (taskList.length === 0) return [];
@@ -194,12 +201,8 @@ const cycleDraftFrequency = () => {
   <div class="task-list">
     <div class="section-header">
       <h2>Your Tasks</h2>
-      <button
-        class="add-btn"
-        @click="toggleTaskCreation"
-        :class="{ 'cancel-mode': draftTask }"
-        aria-label="Add new task"
-      >
+      <button class="add-btn" @click="toggleTaskCreation" :class="{ 'cancel-mode': draftTask }"
+        aria-label="Add new task">
         <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
       </button>
     </div>
@@ -212,28 +215,28 @@ const cycleDraftFrequency = () => {
       </div>
 
       <div class="task-details">
-        <input
-          ref="draftInput"
-          class="task-input"
-          type="text"
-          v-model="draftTask.name"
-          placeholder="What do you need to do?"
-          @keydown.enter="saveDraft"
-          @keydown.esc="toggleTaskCreation"
-        />
+        <div class="input-wrapper">
+          <input ref="draftInput" class="task-input" type="text" v-model="draftTask.name"
+            placeholder="What do you need to do?" @keydown.enter="saveDraft" @keydown.esc="toggleTaskCreation" />
+          <button class=" small-btn add-btn draft-task" @click="clearInput" aria-label="Add new task">
+            <i class="fa-solid fa-eraser"></i>
+          </button>
+        </div>
 
         <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
           {{ draftTask.icon || "😎" }}
         </button>
 
         <select @change="handlePresetSelect" v-model="selectedInput" class="task-ideas-dropdown">
-          <option value="" disabled selected>Task Ideas</option>
+          <option class="dropdown-header" value="" disabled selected>Task Ideas</option>
 
           <template :key="category.name" v-for="category in preMadeTasks">
-            <option disabled :value="category.name">{{ category.name }}</option>
-            <option v-for="item in category.items" :value="item" :key="item">
-              {{ item }}
-            </option>
+            <optgroup :label="category.name">
+              <option v-for="item in category.items" :value="item" :key="item">
+                {{ item }}
+              </option>
+            </optgroup>
+
           </template>
         </select>
 
@@ -243,34 +246,22 @@ const cycleDraftFrequency = () => {
       </div>
 
       <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
-        <EmojiPicker
-          @select="
-            (e: { i: string }) => {
-              draftTask!.icon = e.i;
-              showEmojiPicker = false;
-            }
-          "
-        ></EmojiPicker>
+        <EmojiPicker @select="
+          (e: { i: string }) => {
+            draftTask!.icon = e.i;
+            showEmojiPicker = false;
+          }
+        "></EmojiPicker>
       </div>
     </div>
 
     <transition-group name="task-move" tag="div" class="tasks-container">
-      <div
-        v-for="task in sortedTasks"
-        :key="task.id"
-        class="task-card"
-        :class="{
-          completed: getCompletionState(task),
-          pending: isPending(task.id),
-        }"
-        @click="handleTaskCardClick(task, $event)"
-      >
+      <div v-for="task in sortedTasks" :key="task.id" class="task-card" :class="{
+        completed: getCompletionState(task),
+        pending: isPending(task.id),
+      }" @click="handleTaskCardClick(task, $event)">
         <div class="checkbox-container">
-          <input
-            type="checkbox"
-            :checked="getCompletionState(task)"
-            @click.stop="handleCheck(task.id)"
-          />
+          <input type="checkbox" :checked="getCompletionState(task)" @click.stop="handleCheck(task.id)" />
         </div>
 
         <span class="task-emoji">
@@ -292,16 +283,8 @@ const cycleDraftFrequency = () => {
     </div>
   </div>
 
-  <TaskDetailsModal
-    :task="selectedTask"
-    :isOpen="isModalOpen"
-    :tasks="sortedTasks"
-    @close="closeModal"
-    @save="handleSave"
-    @delete="handleDelete"
-    @complete="handleComplete"
-    @navigate="handleNavigate"
-  />
+  <TaskDetailsModal :task="selectedTask" :isOpen="isModalOpen" :tasks="sortedTasks" @close="closeModal"
+    @save="handleSave" @delete="handleDelete" @complete="handleComplete" @navigate="handleNavigate" />
 </template>
 
 <style scoped lang="scss">
@@ -309,6 +292,10 @@ const cycleDraftFrequency = () => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.dropdown-header {
+  font-style: italic
 }
 
 .section-header {
@@ -322,6 +309,19 @@ const cycleDraftFrequency = () => {
     color: var(--accent-color-quaternary);
     margin: 0;
   }
+}
+
+.input-wrapper {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  margin-right: 0.25rem
+}
+
+.small-btn {
+  height: 24px !important;
+  width: 24px !important;
+  font-size: 10px !important;
 }
 
 .add-btn {
@@ -419,8 +419,7 @@ const cycleDraftFrequency = () => {
   flex: 1;
   font-size: 1rem;
   font-family: inherit;
-  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>")
-    no-repeat;
+  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>") no-repeat;
   background-position: calc(100% - 0.5rem) center;
   -moz-appearance: none;
   -webkit-appearance: none;
@@ -565,8 +564,7 @@ const cycleDraftFrequency = () => {
   min-width: 120px;
   font-size: 0.9rem;
   font-family: inherit;
-  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>")
-    no-repeat;
+  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>") no-repeat;
   background-position: calc(100% - 0.5rem) center;
   -moz-appearance: none;
   -webkit-appearance: none;
