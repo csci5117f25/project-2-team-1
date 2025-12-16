@@ -12,19 +12,27 @@ const currentDateDisplay = computed(() => {
   });
 });
 </script>
-<template>
-  <Navbar />
-  <div class="content-container">
-    <div class="mobile-container">
-      <h1 class="date-header">{{ currentDateDisplay }}</h1>
-    </div>
-    <StreakWidget></StreakWidget>
 
-    <TaskList :statsView="false" :draftTask="false"></TaskList>
+<template>
+  <div class="page-wrapper">
+    <Navbar />
+
+    <div class="content-container">
+      <h1 class="date-header">{{ currentDateDisplay }}</h1>
+
+      <StreakWidget />
+
+      <TaskList />
+    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
+.page-wrapper {
+  min-height: 100vh;
+  background-color: var(--background-color);
+}
+
 .content-container {
   max-width: 800px;
   margin: 0 auto;
@@ -36,5 +44,11 @@ const currentDateDisplay = computed(() => {
   color: var(--accent-color-primary);
   margin-bottom: 1.5rem;
   font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .date-header {
+    font-size: 1.2rem;
+  }
 }
 </style>

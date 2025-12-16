@@ -1,187 +1,244 @@
 <script lang="ts" setup>
+import { ref, computed } from "vue";
+import TaskDetailsModal from "./TaskDetailsModal.vue";
 import {
-  deleteTask,
   getUserTasks,
-  isCompletedToday,
-  markTaskComplete,
   updateTask,
+  deleteTask,
+  toggleTaskComplete,
+  isCompletedToday,
 } from "@/database/database";
 import type Task from "@/interfaces/Task";
-import TaskDetailsModal from "./TaskDetailsModal.vue";
-import type { DocumentData } from "firebase/firestore";
-import { ref } from "vue";
 
 const selectedTask = ref<(Task & { id: string }) | null>(null);
 const isModalOpen = ref(false);
 
-function openTaskModal(task: Task & { id: string }) {
+// https://vueschool.io/articles/vuejs-tutorials/what-is-a-race-condition-in-vue-js/
+const pendingToggles = ref<Map<string, number>>(new Map());
+const optimisticStates = ref<Map<string, boolean>>(new Map());
+const lastOperationTime = ref<number>(0);
+const MIN_OPERATION_INTERVAL = 100;
+
+const tasksData = await getUserTasks();
+
+const getCompletionState = (task: Task & { id: string }): boolean => {
+  const taskId = task.id;
+  if (optimisticStates.value.has(taskId)) {
+    return optimisticStates.value.get(taskId)!;
+  }
+  return isCompletedToday(task);
+};
+
+const isPending = (taskId: string): boolean => {
+  return pendingToggles.value.has(taskId);
+};
+
+const sortedTasks = computed<(Task & { id: string })[]>(() => {
+  const taskList = (tasksData?.value || []) as (Task & { id: string })[];
+  if (taskList.length === 0) return [];
+
+  return [...taskList].sort((a, b) => {
+    const aComplete = getCompletionState(a);
+    const bComplete = getCompletionState(b);
+    if (aComplete === bComplete) return 0;
+    return aComplete ? 1 : -1;
+  });
+});
+
+const handleCheck = async (taskId: string) => {
+  const now = Date.now();
+
+  // global rate limit
+  if (now - lastOperationTime.value < MIN_OPERATION_INTERVAL) {
+    return;
+  }
+
+  // per-task rate limit
+  if (pendingToggles.value.has(taskId)) {
+    const pendingTime = pendingToggles.value.get(taskId)!;
+    if (now - pendingTime < 800) {
+      return;
+    }
+  }
+
+  const taskList = (tasksData?.value || []) as (Task & { id: string })[];
+  const task = taskList.find((t) => t.id === taskId);
+  if (!task) return;
+
+  const currentState = getCompletionState(task);
+  const newState = !currentState;
+
+  lastOperationTime.value = now;
+  pendingToggles.value.set(taskId, now);
+
+  // optimistic ui update
+  optimisticStates.value.set(taskId, newState);
+
+  try {
+    await toggleTaskComplete(taskId);
+    await new Promise((resolve) => setTimeout(resolve, 550));
+  } catch (error) {
+    console.error("Error toggling task:", error);
+    // rollback on error
+    optimisticStates.value.set(taskId, currentState);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  } finally {
+    setTimeout(() => {
+      optimisticStates.value.delete(taskId);
+      pendingToggles.value.delete(taskId);
+    }, 250);
+  }
+};
+
+const openTaskModal = (task: Task & { id: string }) => {
   selectedTask.value = { ...task, id: task.id };
   isModalOpen.value = true;
-}
+};
 
-function handleNavigate(task: Task & { id: string }) {
-  selectedTask.value = { ...task, id: task.id };
-}
-
-function closeModal() {
+const closeModal = () => {
   isModalOpen.value = false;
   selectedTask.value = null;
-}
+};
 
-async function handleSave(updatedTask: { id: string, name?: string, icon?: string, frequency?: string }) {
+const handleSave = async (updatedTask: {
+  name: string;
+  icon: string;
+  frequency: string;
+  id: string;
+}) => {
   await updateTask(updatedTask.id, updatedTask);
   closeModal();
-}
+};
 
-async function handleDelete(taskId: string) {
+const handleDelete = async (taskId: string) => {
   await deleteTask(taskId);
-
   closeModal();
-}
-
-async function handleComplete(taskId: string) {
-  await markTaskComplete(taskId);
-
-  closeModal();
-}
-
-defineProps(["statsView", "draftTask"]);
-const tasks = await getUserTasks();
-
-const updateTaskName = (task: DocumentData, newName: string) => {
-  updateTask(task.id, { name: newName });
 };
 
-const cycleFrequency = (task: DocumentData) => {
-  const next = task.frequency === "daily" ? "monthly" : "daily";
-  updateTask(task.id, { frequency: next });
+const handleComplete = async (taskId: string) => {
+  await handleCheck(taskId);
 };
 
-const handleCheck = (task: DocumentData, isChecked: boolean) => {
-  if (isChecked) {
-    markTaskComplete(task.id);
+const handleNavigate = (task: Task & { id: string }) => {
+  selectedTask.value = { ...task, id: task.id };
+};
+
+const handleTaskCardClick = (task: Task & { id: string }, event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+
+  if (target.closest(".menu-btn")) {
+    return;
   }
+
+  handleCheck(task.id);
 };
 </script>
 
 <template>
   <div class="task-list">
     <slot></slot>
-    <!-- Extra functionality can be injected etc creating new tasks -->
 
-    <div
-      v-for="task in tasks"
-      :key="task.id"
-      class="task-card"
-      :class="{ completed: !statsView ? isCompletedToday(task) : false }"
-    >
-      <div class="checkbox-container">
-        <input
-          type="checkbox"
-          :checked="isCompletedToday(task)"
-          :disabled="isCompletedToday(task)"
-          @change="(e) => handleCheck(task, (e.target as HTMLInputElement).checked)"
-        />
-      </div>
+    <transition-group name="task-move" tag="div" class="tasks-container">
+      <div
+        v-for="task in sortedTasks"
+        :key="task.id"
+        class="task-card"
+        :class="{
+          completed: getCompletionState(task),
+          pending: isPending(task.id),
+        }"
+        @click="handleTaskCardClick(task, $event)"
+      >
+        <div class="checkbox-container">
+          <input
+            type="checkbox"
+            :checked="getCompletionState(task)"
+            @click.stop="handleCheck(task.id)"
+          />
+        </div>
 
-      <span class="task-emoji">
-        {{ task.icon }}
-      </span>
-
-      <div class="task-details">
-        <input
-          v-if="statsView"
-          class="task-name"
-          type="text"
-          :value="task.name"
-          placeholder="Task name..."
-          @input="(e) => updateTaskName(task, (e.target as HTMLInputElement).value)"
-        />
-        <span class="task-name" v-else @click="openTaskModal(task as Task & { id: string })">
-          {{ task.name }}
+        <span class="task-emoji">
+          {{ task.icon }}
         </span>
-        <button v-if="statsView" class="freq-badge" @click="cycleFrequency(task)">
-          {{ task.frequency }}
+
+        <div class="task-details">
+          <span class="task-name">{{ task.name }}</span>
+        </div>
+
+        <button class="menu-btn" @click.stop="openTaskModal(task)" title="Task details">
+          <i class="fa-solid fa-ellipsis"></i>
         </button>
       </div>
-    </div>
+    </transition-group>
 
-    <TaskDetailsModal
-      v-if="!statsView"
-      :task="selectedTask"
-      :isOpen="isModalOpen"
-      :tasks="tasks as (Task & { id: string })[]"
-      @close="closeModal"
-      @save="handleSave"
-      @delete="handleDelete"
-      @complete="handleComplete"
-      @navigate="handleNavigate"
-    />
-
-    <div v-if="tasks?.length === 0 && !draftTask" class="placeholder-state">
+    <div v-if="sortedTasks.length === 0" class="placeholder-state">
       <p>No tasks yet. Create one to get started!</p>
     </div>
   </div>
+
+  <TaskDetailsModal
+    :task="selectedTask"
+    :isOpen="isModalOpen"
+    :tasks="sortedTasks"
+    @close="closeModal"
+    @save="handleSave"
+    @delete="handleDelete"
+    @complete="handleComplete"
+    @navigate="handleNavigate"
+  />
 </template>
 
-<style lang="scss">
+<style scoped lang="scss">
 .task-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.task-name {
-  width: 100%;
-}
-
-.task-emoji {
-  font-size: 1.5rem;
-}
-
-.emoji-picker-wrapper {
-  position: absolute;
-  top: -260px;
-  left: 0;
-}
-
-.add-btn {
-  background-color: var(--accent-color-primary);
-  color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
+.tasks-container {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 14px;
-  transition: background-color 0.2s;
+  flex-direction: column;
+  gap: 1rem;
+}
 
-  &:hover {
-    background-color: var(--accent-color-quaternary);
-  }
+.task-move-move {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-  &.cancel-mode {
-    background-color: #ed3c4b;
-    &:hover {
-      background-color: #df3e16;
-    }
-  }
+.task-move-enter-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.task-move-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: absolute;
+  width: calc(100% - 2rem);
+}
+
+.task-move-enter-from {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.task-move-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
 }
 
 .task-card {
   position: relative;
   background: white;
-  padding: 1rem;
-  border-radius: 10px;
+  padding: 1.25rem;
+  border-radius: 12px;
   display: flex;
   gap: 1rem;
   align-items: center;
+  cursor: pointer;
   transition:
     transform 0.2s,
-    box-shadow 0.2s;
+    box-shadow 0.2s,
+    background-color 0.3s ease,
+    opacity 0.3s ease;
 
   &:hover {
     transform: translateY(-2px);
@@ -191,15 +248,18 @@ const handleCheck = (task: DocumentData, isChecked: boolean) => {
   &.completed {
     background-color: #f8f9fa;
     opacity: 0.85;
+
     .task-name {
       text-decoration: line-through;
       color: #999;
     }
   }
 
-  &.draft-card {
-    border: 2px solid var(--accent-color-tertiary);
-    z-index: 10;
+  &.pending {
+    .checkbox-container input {
+      pointer-events: none;
+      opacity: 0.6;
+    }
   }
 }
 
@@ -218,19 +278,8 @@ const handleCheck = (task: DocumentData, isChecked: boolean) => {
   }
 }
 
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  font-size: 1.1rem;
-
-  &.save-btn {
-    color: var(--accent-color-primary);
-    &:hover {
-      color: var(--accent-color-quaternary);
-    }
-  }
+.task-emoji {
+  font-size: 1.5rem;
 }
 
 .task-details {
@@ -239,36 +288,40 @@ const handleCheck = (task: DocumentData, isChecked: boolean) => {
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 .task-name {
-  border: none;
   font-size: 1rem;
   font-family: inherit;
   width: 100%;
-  background: transparent;
-  outline: none;
-  padding: 0.4rem 0.2rem;
-
-  &:focus {
-    border-bottom: 2px solid var(--accent-color-tertiary);
-  }
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.freq-badge {
-  background: #f0f0f0;
+.menu-btn {
+  background: none;
   border: none;
-  padding: 0.3rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  color: #666;
-  text-transform: capitalize;
+  padding: 0.5rem;
   cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.2s;
+  color: #999;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
 
   &:hover {
-    background: #e0e0e0;
+    background-color: #f0f0f0;
+    color: var(--accent-color-primary);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 }
 
@@ -281,18 +334,12 @@ const handleCheck = (task: DocumentData, isChecked: boolean) => {
 }
 
 @media (max-width: 480px) {
-  .date-header {
-    font-size: 1.2rem;
-  }
   .task-card {
     padding: 0.8rem;
   }
+
   .task-name {
     font-size: 0.95rem;
-  }
-  .freq-badge {
-    padding: 0.2rem 0.6rem;
-    font-size: 0.7rem;
   }
 }
 </style>
