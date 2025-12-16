@@ -16,9 +16,8 @@ const showEmojiPicker = ref(false);
 
 const draftTask = ref<Task | null>(null);
 const draftInput = ref<HTMLInputElement | null>(null);
-
-const selectedTask = ref<(Task & { id: string }) | null>(null);
-const isModalOpen = ref(false);
+const showCustomInput = ref(true);
+const customSelectValue = ref("");
 
 const user = useCurrentUser();
 
@@ -54,9 +53,42 @@ const toggleTaskCreation = async () => {
 };
 
 const saveDraft = async () => {
-  if (!draftTask.value?.name.trim()) return;
-  await createTask(draftTask.value);
+  if (showCustomInput.value) {
+    if (!draftTask.value?.name.trim()) return;
+  } else {
+    if (draftTask.value) {
+      draftTask.value.name = customSelectValue.value;
+    }
+  }
+  if (draftTask.value) {
+      await createTask(draftTask.value);
+  }
   draftTask.value = null;
+  showCustomInput.value = true;
+  customSelectValue.value = "";
+};
+
+const handleSelect = async (event: Event) => {
+  const eventValue = (event.target as any).value;
+  if (eventValue === "custom") {
+    showCustomInput.value = true;
+    customSelectValue.value = "";
+    await nextTick();
+    draftInput.value?.focus();
+  }
+  else {
+    customSelectValue.value = eventValue;
+  }
+};
+
+const handleCustomInput = async () => {
+  console.log(showCustomInput.value);
+  if (showCustomInput.value) {
+    if (draftTask.value) {
+      customSelectValue.value = draftTask.value.name;
+      showCustomInput.value = false;
+    }
+  }
 };
 
 const cycleDraftFrequency = () => {
@@ -130,13 +162,22 @@ const cycleDraftFrequency = () => {
           <div class="task-details">
             <input
               ref="draftInput"
-              class="task-name"
+              :class="`task-name ${showCustomInput ? 'input' : 'input-hidden'}`"
               type="text"
               v-model="draftTask.name"
               placeholder="What do you need to do?"
               @keydown.enter="saveDraft"
               @keydown.esc="toggleTaskCreation"
             />
+            <select
+              @focus="handleCustomInput"
+              @change="handleSelect"
+              :class="`dropdown task-name ${showCustomInput ? 'dropdown-hidden' : ''}`"
+            >
+              <option value="custom">{{ customSelectValue }}</option>
+              <option value="option-1">Option 1</option>
+              <option value="option-2">Option 2</option>
+            </select>
             <button class="freq-badge" @click="cycleDraftFrequency">
               {{ draftTask.frequency }}
             </button>
@@ -151,6 +192,32 @@ const cycleDraftFrequency = () => {
 .page-wrapper {
   min-height: 100vh;
   background-color: var(--background-color);
+}
+
+.dropdown {
+  // https://stackoverflow.com/questions/38788848/positioning-of-an-arrow-in-an-html-select
+  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>")
+    no-repeat;
+  background-position: calc(100% - 1.5rem) center !important;
+  -moz-appearance: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  padding-right: 2rem !important;
+  border: none;
+  outline: none;
+  width: 100%;
+}
+
+.dropdown-hidden {
+  width: 10%;
+}
+
+.input {
+  width: 100%;
+}
+
+.input-hidden {
+  display: none;
 }
 
 .content-container {
