@@ -24,7 +24,7 @@ const isIPhone = ref(false);
 
 const auth = useFirebaseAuth();
 
-async function onNotificationsToggle(event: Event) {
+async function onNotificationsToggle() {
   if (!settingsLoaded.value || syncingNotificationsToggle.value) {
     return;
   }
@@ -34,15 +34,15 @@ async function onNotificationsToggle(event: Event) {
     return;
   }
 
-  const target = event.target as HTMLInputElement | null;
-  const nextValue = Boolean(target?.checked);
+  const nextValue = !notificationsEnabled.value;
   const previousValue = notificationsEnabled.value;
 
   syncingNotificationsToggle.value = true;
   try {
     if (nextValue) {
       await subscribeToPushNotifications();
-      notificationsEnabled.value = true;
+      // Only reflect "enabled" once the local token (final step) has been stored.
+      notificationsEnabled.value = Boolean(getStoredToken());
     } else {
       await unsubscribeFromPushNotifications();
       notificationsEnabled.value = false;
@@ -102,7 +102,7 @@ async function onDeleteAccount() {
           type="checkbox"
           :checked="notificationsEnabled"
           :disabled="!notificationsSupported || syncingNotificationsToggle"
-          @change="onNotificationsToggle"
+          @click.prevent="onNotificationsToggle"
         />
         <span class="slider round"></span>
         <span class="switch-label">Notifications</span>
