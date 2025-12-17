@@ -84,14 +84,21 @@ export const createTask = async (data: Task) => {
       }
     });
 
-    // if all tasks were already completed today, decrease streak by 1
+    // if all tasks were already completed today, decrease streak by 1 and clear last_streak_date
     if (allExistingTasksCompletedToday && !tasksSnapshot.empty) {
       const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
       const statsSnapshot = await getDoc(statsRef);
       const currentStreak = statsSnapshot.exists() ? (statsSnapshot.data().streak ?? 0) : 0;
 
       if (currentStreak > 0) {
-        await setDoc(statsRef, { streak: currentStreak - 1 }, { merge: true });
+        await setDoc(
+          statsRef,
+          {
+            streak: currentStreak - 1,
+            last_streak_date: 0,
+          },
+          { merge: true }
+        );
       }
     }
 
@@ -176,7 +183,7 @@ export const isCompletedToday = (task: DocumentData) => {
   return false;
 };
 
-const calculateGlobalStreak = async () => {
+export const calculateGlobalStreak = async (shouldIncrement: boolean = false) => {
   const currentUser = await getCurrentUser();
   if (currentUser) {
     const tasksSnapshot = await getDocs(
@@ -185,7 +192,9 @@ const calculateGlobalStreak = async () => {
 
     const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
     const statsSnapshot = await getDoc(statsRef);
-    const currentStreak = statsSnapshot.exists() ? (statsSnapshot.data().streak ?? 0) : 0;
+    const statsData = statsSnapshot.exists() ? statsSnapshot.data() : {};
+    const currentStreak = statsData.streak ?? 0;
+    const lastStreakDate = statsData.last_streak_date ?? 0;
 
     if (tasksSnapshot.empty) {
       return currentStreak; // no tasks - maintain current streak
@@ -210,13 +219,22 @@ const calculateGlobalStreak = async () => {
       return 0; // streak broken
     }
 
-    if (allTasksCompletedToday) {
-      return currentStreak + 1; // all tasks completed today - increment
+    // only increment if shouldIncrement is true, all tasks are complete, and we haven't incremented today
+    if (shouldIncrement && allTasksCompletedToday) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const lastStreakDay = new Date(lastStreakDate);
+      lastStreakDay.setHours(0, 0, 0, 0);
+
+      // only increment if we haven't already incremented today
+      if (today.getTime() > lastStreakDay.getTime()) {
+        return { streak: currentStreak + 1, incremented: true };
+      }
     }
 
-    return currentStreak; // some tasks not completed yet - maintain current streak
+    return { streak: currentStreak, incremented: false }; // maintain current streak
   }
-  return 0;
+  return { streak: 0, incremented: false };
 };
 
 export const markTaskComplete = async (id: string) => {
@@ -241,19 +259,22 @@ export const markTaskComplete = async (id: string) => {
       };
       await addDoc(collection(db, "users", currentUser.uid, "completed_tasks"), completedTaskData);
 
-      const newGlobalStreak = await calculateGlobalStreak();
+      const streakResult = await calculateGlobalStreak(true);
       const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
       const statsSnapshot = await getDoc(statsRef);
       const currentXp = statsSnapshot.exists() ? statsSnapshot.data().xp : 0;
 
-      return await setDoc(
-        statsRef,
-        {
-          xp: currentXp + xpReward,
-          streak: newGlobalStreak,
-        },
-        { merge: true }
-      );
+      const updateData: { xp: number; streak: number; last_streak_date?: number } = {
+        xp: currentXp + xpReward,
+        streak: streakResult.streak,
+      };
+
+      // only update last_streak_date if we actually incremented the streak
+      if (streakResult.incremented) {
+        updateData.last_streak_date = Date.now();
+      }
+
+      return await setDoc(statsRef, updateData, { merge: true });
     }
   }
 };
@@ -333,6 +354,7 @@ export const unmarkTaskComplete = async (id: string) => {
       {
         xp: newXp,
         streak: newGlobalStreak,
+        last_streak_date: 0,
       },
       { merge: true }
     );
@@ -366,6 +388,22 @@ export const updateUserStats = async (data: { streak?: number }) => {
   if (currentUser) {
     const reference = doc(db, "users", currentUser.uid, "stats", "current");
     await setDoc(reference, data, { merge: true });
+  }
+};
+
+export const validateAndUpdateStreak = async () => {
+  // only check if streak should be reset to 0 (don't increment on page load)
+  const streakResult = await calculateGlobalStreak(false);
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
+    const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
+    const statsSnapshot = await getDoc(statsRef);
+    const currentStreak = statsSnapshot.exists() ? (statsSnapshot.data().streak ?? 0) : 0;
+
+    // only update if streak was reset to 0
+    if (streakResult.streak === 0 && currentStreak !== 0) {
+      await updateUserStats({ streak: 0 });
+    }
   }
 };
 

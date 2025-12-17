@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { getUserStats, getUserTasks, isCompletedToday } from "@/database/database";
+import {
+  getUserStats,
+  getUserTasks,
+  isCompletedToday,
+  validateAndUpdateStreak,
+} from "@/database/database";
+
+// validate streak on load, resets to 0 if tasks have expired
+await validateAndUpdateStreak();
 
 const userStats = await getUserStats();
 const tasks = await getUserTasks();
