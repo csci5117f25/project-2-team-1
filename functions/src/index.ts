@@ -3,6 +3,7 @@
 
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onSchedule} from "firebase-functions/v2/scheduler";
+import {onRequest} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
@@ -19,55 +20,129 @@ export const sendDailyNotifications = onSchedule(
     timeZone: "America/Chicago",
   },
   async () => {
-    const db = admin.firestore();
+    await sendNotificationToAllTokens(NOTIFICATION_TITLE, NOTIFICATION_BODY);
+  }
+);
 
-    // find users with notis enabled
-    const usersSnap = await db
-      .collectionGroup("settings")
-      .where("notifications", "==", true)
-      .get();
+export const sendTestNotification = onRequest(async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).json({error: "Use POST"});
+    return;
+  }
 
-    const messages: admin.messaging.TokenMessage[] = [];
+  const providedKey =
+    (typeof req.query.key === "string" ? req.query.key : null) ??
+    req.get("x-test-notification-key") ??
+    null;
 
-    for (const settingsDoc of usersSnap.docs) {
-      const userId = settingsDoc.ref.parent.parent?.id;
-      if (!userId) continue;
+  const db = admin.firestore();
+  const configSnap = await db.doc("config/testNotification").get();
+  const expectedKey =
+    (
+      configSnap.exists ?
+        (configSnap.get("key") as string | undefined) :
+        undefined
+    ) ?? "";
 
-      const tokensSnap = await db
-        .collection("users")
-        .doc(userId)
-        .collection("notification_tokens")
-        .get();
+  if (!expectedKey) {
+    res.status(503).json({
+      error: "Missing server config",
+      message:
+        "Ensure Firestore doc config/testNotification has a { key: \"...\" }.",
+    });
+    return;
+  }
 
-      tokensSnap.forEach((tokenDoc) => {
-        messages.push({
-          token: tokenDoc.id,
+  if (!providedKey || providedKey !== expectedKey) {
+    res.status(403).json({error: "Forbidden"});
+    return;
+  }
+
+  // Allows for optional title/body in the request, else defaults are used
+  const body =
+    typeof req.body === "object" && req.body ?
+      (req.body as Record<string, unknown>) :
+      {};
+  const title =
+    typeof body.title === "string" && body.title ?
+      body.title :
+      NOTIFICATION_TITLE;
+  const messageBody =
+    typeof body.body === "string" && body.body ? body.body : NOTIFICATION_BODY;
+
+  const result = await sendNotificationToAllTokens(title, messageBody);
+  res.status(200).json(result);
+});
+
+/**
+ * @typedef {Object} NotificationResult
+ * @property {number} attempted
+ * @property {number} sent
+ * @property {number} failed
+ * @property {number} cleaned
+ */
+
+/**
+ * Sends a notification to all stored notification tokens
+ * (all device/browser combos with notifications enabled).
+ * Cleans up any stale tokens that are no longer valid.
+ * @param {string} title - Notification title.
+ * @param {string} body - Notification body.
+ * @return {Promise<NotificationResult>}
+ * Summary of notification sending results.
+ */
+async function sendNotificationToAllTokens(title: string, body: string) {
+  const db = admin.firestore();
+  const tokensSnap = await db.collectionGroup("notification_tokens").get();
+
+  const tokens: Array<{token: string; userId: string}> = [];
+  for (const tokenDoc of tokensSnap.docs) {
+    const userId = tokenDoc.ref.parent.parent?.id;
+    if (!userId) continue;
+    tokens.push({token: tokenDoc.id, userId});
+  }
+
+  const messaging = admin.messaging();
+  const chunkSize = 20; // send at most 20 at a time
+
+  // logging
+  let sent = 0;
+  let failed = 0;
+  let cleaned = 0;
+
+  for (let i = 0; i < tokens.length; i += chunkSize) {
+    const chunk = tokens.slice(i, i + chunkSize);
+    const sendPromises = chunk.map(({token, userId}) =>
+      messaging
+        .send({
+          token,
           notification: {
-            title: NOTIFICATION_TITLE,
-            body: NOTIFICATION_BODY,
+            title,
+            body,
           },
           data: {
             userId,
             // other attributes could be added here for code to use
           },
-        });
-      });
-    }
-
-    const messaging = admin.messaging();
-    const sendPromises = messages.map((msg) =>
-      messaging.send(msg).catch(async (error) => {
-        if (error.code === "messaging/registration-token-not-registered") {
-          await cleanupToken(msg.token);
-        } else {
-          logger.error("Failed to send", {token: msg.token, error});
-        }
-      })
+        })
+        .then(() => {
+          sent += 1;
+        })
+        .catch(async (error) => {
+          failed += 1;
+          if (error.code === "messaging/registration-token-not-registered") {
+            await cleanupToken(token);
+            cleaned += 1;
+          } else {
+            logger.error("Failed to send", {token, error});
+          }
+        })
     );
 
     await Promise.all(sendPromises);
   }
-);
+  return {attempted: tokens.length, sent, failed, cleaned};
+}
 
 /**
  * Removes stale notification tokens from Firestore.
