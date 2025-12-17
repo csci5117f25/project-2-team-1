@@ -157,7 +157,7 @@ const toggleTaskCreation = async () => {
     draftTask.value = {
       frequency: "daily",
       name: "",
-      icon: "",
+      icon: "😎",
       last_completed_time: 0,
       current_streak: 0,
       xp: 10,
