@@ -9,6 +9,8 @@ import {
   setDoc,
   getDoc,
   getDocs,
+  where,
+  limit,
   type DocumentData,
 } from "firebase/firestore";
 import { computed, watch } from "vue";
@@ -215,35 +217,35 @@ export const markTaskComplete = async (id: string) => {
   if (currentUser) {
     const task = await getUserTask(id);
     if (task) {
+      const completionTime = Date.now();
       const newStreak = calculateStreakTaskContinue(task) ? task.current_streak + 1 : 1;
+      const xpReward = task.frequency === "daily" ? 10 : 50;
       await updateTask(id, {
-        last_completed_time: Date.now(),
+        last_completed_time: completionTime,
         current_streak: newStreak,
       });
 
+      const completedTaskData: CompletedTask = {
+        parent_id: id,
+        days_completed: newStreak,
+        completed_at: completionTime,
+      };
+      await addDoc(collection(db, "users", currentUser.uid, "completed_tasks"), completedTaskData);
+
       const newGlobalStreak = await calculateGlobalStreak();
-      await updateUserStats({ streak: newGlobalStreak });
+      const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
+      const statsSnapshot = await getDoc(statsRef);
+      const currentXp = statsSnapshot.exists() ? statsSnapshot.data().xp : 0;
+
+      return await setDoc(
+        statsRef,
+        {
+          xp: currentXp + xpReward,
+          streak: newGlobalStreak,
+        },
+        { merge: true }
+      );
     }
-
-    const streak = task?.current_streak ?? 0;
-    const completedTaskData: CompletedTask = {
-      parent_id: id,
-      days_completed: streak,
-      completed_at: Date.now(),
-    };
-    await addDoc(collection(db, "users", currentUser.uid, "completed_tasks"), completedTaskData);
-
-    const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
-    const statsSnapshot = await getDoc(statsRef);
-    const currentXp = statsSnapshot.exists() ? statsSnapshot.data().xp : 0;
-    const xpReward = task?.frequency === "daily" ? 10 : 50;
-    return await setDoc(
-      statsRef,
-      {
-        xp: currentXp + xpReward,
-      },
-      { merge: true }
-    );
   }
 };
 
@@ -255,28 +257,71 @@ export const unmarkTaskComplete = async (id: string) => {
       return;
     }
 
-    // reset last_completed_time to 0 and decrement streak
-    const newStreak = Math.max(0, (task.current_streak || 1) - 1);
+    // check if all tasks complete before unchecking
+    const tasksSnapshot = await getDocs(
+      collection(db, "users", currentUser.uid, "user_defined_tasks")
+    );
+
+    let allTasksCurrentlyComplete = true;
+    tasksSnapshot.forEach((taskDoc) => {
+      const taskData = taskDoc.data();
+      if (!isCompletedToday(taskData)) {
+        allTasksCurrentlyComplete = false;
+      }
+    });
+
+    const targetTimestamp = task.last_completed_time;
+
+    // find previous completion to restore last_completed_time
+    const completedTasksRef = collection(db, "users", currentUser.uid, "completed_tasks");
+    const previousQ = query(
+      completedTasksRef,
+      where("parent_id", "==", id),
+      where("completed_at", "<", targetTimestamp),
+      orderBy("completed_at", "desc"),
+      limit(1)
+    );
+    const previousSnapshot = await getDocs(previousQ);
+    const previousCompletedTime = previousSnapshot.docs[0]?.data().completed_at ?? 0;
+
+    // update task w/ previous completion time and dec streak
+    const newStreak = Math.max(0, (task.current_streak || 0) - 1);
     await updateTask(id, {
-      last_completed_time: 0,
+      last_completed_time: previousCompletedTime,
       current_streak: newStreak,
     });
 
-    // update global streak
-    const newGlobalStreak = await calculateGlobalStreak();
-    await updateUserStats({ streak: newGlobalStreak });
+    // delete completion entry
+    const q = query(
+      completedTasksRef,
+      where("parent_id", "==", id),
+      where("completed_at", "==", targetTimestamp),
+      limit(1)
+    );
+    const completedTasksSnapshot = await getDocs(q);
+    const docToDelete = completedTasksSnapshot.docs[0];
+    if (docToDelete) {
+      await deleteDoc(docToDelete.ref);
+    }
 
-    // remove XP
+    // update global streak and XP
     const statsRef = doc(db, "users", currentUser.uid, "stats", "current");
     const statsSnapshot = await getDoc(statsRef);
+    const currentStreak = statsSnapshot.exists() ? (statsSnapshot.data().streak ?? 0) : 0;
     const currentXp = statsSnapshot.exists() ? statsSnapshot.data().xp : 0;
-    const xpPenalty = task?.frequency === "daily" ? 10 : 50;
+
+    const newGlobalStreak = allTasksCurrentlyComplete
+      ? Math.max(0, currentStreak - 1)
+      : currentStreak;
+
+    const xpPenalty = task.frequency === "daily" ? 10 : 50;
     const newXp = Math.max(0, currentXp - xpPenalty);
 
     await setDoc(
       statsRef,
       {
         xp: newXp,
+        streak: newGlobalStreak,
       },
       { merge: true }
     );

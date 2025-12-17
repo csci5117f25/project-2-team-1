@@ -16,6 +16,7 @@ import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
 import EmojiPicker from "vue3-emoji-picker";
+import StreakWidget from "@/components/StreakWidget.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 
 const showEmojiPicker = ref(false);
@@ -136,6 +137,8 @@ const currentDateDisplay = computed(() => {
 
     <div class="content-container">
       <h1 class="date-header">{{ currentDateDisplay }}</h1>
+
+      <StreakWidget />
 
       <div class="card stats-card">
         <div class="stats-header">
