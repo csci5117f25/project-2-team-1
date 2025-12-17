@@ -198,7 +198,6 @@ const cycleDraftFrequency = () => {
         class="add-btn"
         @click="toggleTaskCreation"
         :class="{ 'cancel-mode': draftTask }"
-        aria-label="Add new task"
       >
         <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
       </button>
