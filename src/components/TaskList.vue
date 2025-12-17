@@ -344,7 +344,7 @@ const cycleDraftFrequency = () => {
 
   h2 {
     font-size: 1.4rem;
-    color: var(--accent-color-quaternary);
+    color: var(--accent-color-primary);
     margin: 0;
   }
 }
@@ -538,6 +538,7 @@ const cycleDraftFrequency = () => {
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background-color: var(--accent-color-quaternary);
   }
 
   &.completed {
@@ -548,6 +549,10 @@ const cycleDraftFrequency = () => {
       text-decoration: line-through;
       color: #999;
     }
+  }
+
+  &.completed:hover {
+    background-color: var(--accent-color-quinary);
   }
 
   &.pending {

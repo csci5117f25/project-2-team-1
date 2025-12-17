@@ -112,7 +112,7 @@ async function onDeleteAccount() {
     height: 0;
 
     &:checked + .slider {
-      background-color: var(--accent-color-primary);
+      background-color: var(--accent-color-quaternary);
     }
 
     &:checked + .slider:before {
