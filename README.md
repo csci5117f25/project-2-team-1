@@ -4,14 +4,18 @@ CSCI 5117, Fall 2025, [assignment description](https://canvas.umn.edu/courses/51
 
 ## App Info:
 
-* Team Name: TODO
-* App Name: TODO
-* App Link: <https://TODO.com/>
+* Team Name: 
+* App Name: GYST (Get Your Shit Together)
+* App Link: <https://gyst-1ba35.web.app/login>
 
 ### Students
 
 * First Last, x500@umn.edu
-* ...
+* Connell Hagen, hage0686
+* Mark Spengler, speng026
+* Gabby Ruth, ruth0093
+* Daigan Berger, ber00133
+* Gabe Robison, girma039
 
 
 ## Key Features
@@ -19,15 +23,18 @@ CSCI 5117, Fall 2025, [assignment description](https://canvas.umn.edu/courses/51
 **Describe the most challenging features you implemented
 (one sentence per bullet, maximum 4 bullets):**
 
-* ...
+* Notifications were tricky because learning how to get the service workers working, allow toggling off notifications, and sending notifications on different platforms all required new learning.
+* The streak calculation was tricky because there are so many cases where we needed to calculate the streak, and sometimes this would be to increment to the streak, or sometimes just to test if it had expired, and this was complicated.
+* Getting the GitHub style visualization was tricky because there was a lot of complicated styling with mobile etc. that had to be done, and the graph setup itself wasn't a trivial task either.
+* Getting the task creation and editing working was difficult because we went through many iterations where we found that it was not a very good UX and improved it to make it more intuitive for the user.
 
 Which (if any) device integration(s) does your app support?
 
-* ...
+* mobile compatible (can add to homescreen on iphone and its different that)
 
 Which (if any) progressive web app feature(s) does your app support?
 
-* ...
+* push notifications
 
 
 
@@ -53,8 +60,7 @@ This screen pops-up after the user clicks on a task from the homepage, and conta
 
 **Is there anything special we need to know in order to effectively test your app? (optional):**
 
-* ...
-
+* Once enabled, expect a push notification to send at 11am daily.
 
 
 ## Screenshots of Site (complete)
@@ -72,10 +78,5 @@ along with a very brief caption:**
 Please do not document required libraries (e.g., VUE, Firebase, vuefire).**
 
 * Library or service name: description of use
-* ...
-
-**If there's anything else you would like to disclose about how your project
-relied on external code, expertise, or anything else, please disclose that
-here:**
-
-...
+* HTML2canvas - to render an image export for sharing with friends
+* SASS - improved CSS
