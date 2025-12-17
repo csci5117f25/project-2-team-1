@@ -17,7 +17,7 @@ const preMadeTasks = ref(await getPreMadeTasks());
 console.log(preMadeTasks.value);
 
 const draftTask = ref<Task | null>(null);
-const userDataDiv = ref<HTMLElement | null>(null);
+const userExportDiv = ref<HTMLElement | null>(null);
 
 const user = useCurrentUser();
 
@@ -35,18 +35,13 @@ const xpForNextLevel = computed(() => currentLevel.value * 100);
 const progressPercent = computed(() => currentXP.value % 100);
 
 const handleUserExport = async () => {
-  if (userDataDiv.value) {
-    const canvas = await html2canvas(userDataDiv.value, { scale: 2});
+  if (userExportDiv.value) {
+    const canvas = await html2canvas(userExportDiv.value, { scale: 2 });
     const url = canvas.toDataURL();
     const a = document.createElement("a"); // https://stackoverflow.com/questions/11620698/how-to-trigger-a-file-download-when-clicking-an-html-button-or-javascript
     a.href = url;
-    const downloadUrl = url.split("/").pop();
-    if (downloadUrl) {
-      a.download = "GYST-EXPORT.png";
-    }
-    document.body.appendChild(a);
+    a.download = "GYST-stats-export.png";
     a.click();
-    document.body.removeChild(a);
   }
 };
 </script>
@@ -56,32 +51,55 @@ const handleUserExport = async () => {
     <Navbar />
 
     <div class="content-container">
-      <CustomButton class="share-button" @click="handleUserExport"
-        >Share your stats<i class="fa-solid fa-share-from-square"></i
-      ></CustomButton>
       <StreakWidget />
-      <div ref="userDataDiv">
-        <div class="card stats-card">
-          <div class="stats-header">
-            <div class="level-badge">
-              <span class="level-label">Level</span>
-              <span class="level-number">{{ currentLevel }}</span>
-            </div>
-            <div class="xp-text">
-              <strong>{{ currentXP }}</strong> <span class="muted">/ {{ xpForNextLevel }} XP</span>
-            </div>
+      <div class="card stats-card">
+        <div class="stats-header">
+          <div class="level-badge">
+            <span class="level-label">Level</span>
+            <span class="level-number">{{ currentLevel }}</span>
           </div>
-          <div class="progress-bar-container">
-            <div class="progress-bar-fill" :style="{ width: `${progressPercent}%` }"></div>
+          <div class="xp-text">
+            <strong>{{ currentXP }}</strong> <span class="muted">/ {{ xpForNextLevel }} XP</span>
           </div>
         </div>
-
-        <div class="card graph-card">
-          <ContributionGraph />
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" :style="{ width: `${progressPercent}%` }"></div>
         </div>
       </div>
 
+      <div class="card graph-card">
+        <ContributionGraph />
+      </div>
+
+      <div class="center-align-btn">
+        <CustomButton class="share-button" @click="handleUserExport"
+          >Share your stats<i class="fa-solid fa-share-from-square"></i
+        ></CustomButton>
+      </div>
+
       <TaskList :statsView="true" :draftTask="draftTask"> </TaskList>
+    </div>
+  </div>
+
+  <div ref="userExportDiv" id="user-export-div" style="position: absolute; left: -9999px">
+    <h1>Look at My Stats on GYST!</h1>
+    <StreakWidget :isForDisplayCard="true" />
+    <div class="card stats-card">
+      <div class="stats-header">
+        <div class="level-badge">
+          <span class="level-label">Level</span>
+          <span class="level-number">{{ currentLevel }}</span>
+        </div>
+        <div class="xp-text">
+          <strong>{{ currentXP }}</strong> <span class="muted">/ {{ xpForNextLevel }} XP</span>
+        </div>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" :style="{ width: `${progressPercent}%` }"></div>
+      </div>
+    </div>
+    <div class="card graph-card">
+      <ContributionGraph />
     </div>
   </div>
 </template>
@@ -303,6 +321,24 @@ const handleUserExport = async () => {
   &:hover {
     background: #e0e0e0;
   }
+}
+
+.center-align-btn {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+
+#user-export-div {
+  h1 {
+    color: var(--accent-color-primary);
+  }
+
+  width: 700px;
+  height: 700px;
+  background-color: var(--background-color);
+  padding: 1rem;
+  border: var(--accent-color-primary) 0.5rem solid;
 }
 
 @media (max-width: 768px) {
