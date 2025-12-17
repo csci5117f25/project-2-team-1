@@ -5,14 +5,20 @@ import { getUserStats, getUserTasks, isCompletedToday } from "@/database/databas
 const userStats = await getUserStats();
 const tasks = await getUserTasks();
 
+defineProps({
+  isForDisplayCard: Boolean,
+});
+
 const isActive = computed(() => {
   if (!tasks || !tasks.value || tasks.value.length === 0) return false;
   return tasks.value.every((task) => isCompletedToday(task));
 });
 </script>
 <template>
-  <p v-if="!isActive">Complete all of your tasks today to increase your streak!</p>
-  <div class="streak-container" :class="{ inactive: !isActive }">
+  <p v-if="!isActive && !isForDisplayCard">
+    Complete all of your tasks today to increase your streak!
+  </p>
+  <div class="streak-container" :class="{ inactive: !isActive && !isForDisplayCard }">
     <p class="fire-emoji">🔥</p>
     <div>
       <p class="streak-text">Streak: {{ userStats?.streak ?? 0 }}</p>

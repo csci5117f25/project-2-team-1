@@ -1,27 +1,23 @@
 <script setup lang="ts">
-import { computed, ref, nextTick } from "vue";
+import { computed, ref } from "vue";
 import Navbar from "@/components/NavbarComponent.vue";
 import ContributionGraph from "@/components/ContributionGraph.vue";
 import type Task from "@/interfaces/Task";
 import { doc } from "firebase/firestore";
 import { useDocument, useCurrentUser } from "vuefire";
 import { db } from "../../firebase_conf";
-import EmojiPicker from "vue3-emoji-picker";
 import StreakWidget from "@/components/StreakWidget.vue";
 import "/node_modules/vue3-emoji-picker/dist/style.css";
 import TaskList from "@/components/TaskList.vue";
-import { createTask, getPreMadeTasks } from "@/database/database";
+import { getPreMadeTasks } from "@/database/database";
+import html2canvas from "html2canvas";
+import CustomButton from "@/components/CustomButton.vue";
 
 const preMadeTasks = ref(await getPreMadeTasks());
 console.log(preMadeTasks.value);
 
-const showEmojiPicker = ref(false);
-
 const draftTask = ref<Task | null>(null);
-const draftInput = ref<HTMLInputElement | null>(null);
-const showCustomInput = ref(true);
-const customSelectValue = ref("");
-const selectedInput = ref("");
+const userExportDiv = ref<HTMLElement | null>(null);
 
 const user = useCurrentUser();
 
@@ -38,65 +34,14 @@ const currentLevel = computed(() => Math.floor(currentXP.value / 100) + 1);
 const xpForNextLevel = computed(() => currentLevel.value * 100);
 const progressPercent = computed(() => currentXP.value % 100);
 
-const toggleTaskCreation = async () => {
-  if (draftTask.value) {
-    draftTask.value = null;
-  } else {
-    draftTask.value = {
-      frequency: "daily",
-      name: "",
-      icon: "",
-      last_completed_time: 0,
-      current_streak: 0,
-      xp: 10,
-      created_at: Date.now(),
-    };
-    await nextTick();
-    draftInput.value?.focus();
-  }
-};
-
-const saveDraft = async () => {
-  if (showCustomInput.value) {
-    if (!draftTask.value?.name.trim()) return;
-  } else {
-    if (draftTask.value) {
-      draftTask.value.name = selectedInput.value;
-    }
-  }
-  if (draftTask.value) {
-    console.log(draftTask.value);
-    await createTask(draftTask.value);
-  }
-  draftTask.value = null;
-  selectedInput.value = "custom";
-  showCustomInput.value = true;
-  customSelectValue.value = "";
-};
-
-const handleSelect = async (event: Event) => {
-  const target = event.target as HTMLSelectElement;
-  if (target.value === "custom") {
-    showCustomInput.value = true;
-    customSelectValue.value = "";
-    await nextTick();
-    draftInput.value?.focus();
-  }
-};
-
-const handleCustomInput = async () => {
-  console.log(showCustomInput.value);
-  if (showCustomInput.value) {
-    if (draftTask.value) {
-      customSelectValue.value = draftTask.value.name;
-      showCustomInput.value = false;
-    }
-  }
-};
-
-const cycleDraftFrequency = () => {
-  if (draftTask.value) {
-    draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
+const handleUserExport = async () => {
+  if (userExportDiv.value) {
+    const canvas = await html2canvas(userExportDiv.value, { scale: 2 });
+    const url = canvas.toDataURL();
+    const a = document.createElement("a"); // https://stackoverflow.com/questions/11620698/how-to-trigger-a-file-download-when-clicking-an-html-button-or-javascript
+    a.href = url;
+    a.download = "GYST-stats-export.png";
+    a.click();
   }
 };
 </script>
@@ -107,7 +52,6 @@ const cycleDraftFrequency = () => {
 
     <div class="content-container">
       <StreakWidget />
-
       <div class="card stats-card">
         <div class="stats-header">
           <div class="level-badge">
@@ -127,71 +71,35 @@ const cycleDraftFrequency = () => {
         <ContributionGraph />
       </div>
 
-      <TaskList :statsView="true" :draftTask="draftTask">
-        <div class="section-header">
-          <h2>Your Tasks</h2>
-          <button
-            class="add-btn"
-            @click="toggleTaskCreation"
-            :class="{ 'cancel-mode': draftTask }"
-          >
-            <i class="fa-solid" :class="draftTask ? 'fa-xmark' : 'fa-plus'"></i>
-          </button>
+      <div class="center-align-btn">
+        <CustomButton class="share-button" @click="handleUserExport"
+          >Share your stats<i class="fa-solid fa-share-from-square"></i
+        ></CustomButton>
+      </div>
+
+      <TaskList :statsView="true" :draftTask="draftTask"> </TaskList>
+    </div>
+  </div>
+
+  <div ref="userExportDiv" id="user-export-div" style="position: absolute; left: -9999px">
+    <h1>Look at My Stats on GYST!</h1>
+    <StreakWidget :isForDisplayCard="true" />
+    <div class="card stats-card">
+      <div class="stats-header">
+        <div class="level-badge">
+          <span class="level-label">Level</span>
+          <span class="level-number">{{ currentLevel }}</span>
         </div>
-
-        <div v-if="draftTask" class="task-card draft-card">
-          <div class="checkbox-container">
-            <button class="icon-btn save-btn" @click="saveDraft" title="Save Task">
-              <i class="fa-solid fa-check"></i>
-            </button>
-          </div>
-
-          <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
-            {{ draftTask.icon || "😎" }}
-          </button>
-
-          <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
-            <EmojiPicker
-              @select="
-                (e: { i: string }) => {
-                  draftTask!.icon = e.i;
-                  showEmojiPicker = false;
-                }
-              "
-            ></EmojiPicker>
-          </div>
-
-          <div class="task-details">
-            <input
-              ref="draftInput"
-              :class="`task-name ${showCustomInput ? 'input' : 'input-hidden'}`"
-              type="text"
-              v-model="draftTask.name"
-              placeholder="What do you need to do?"
-              @keydown.enter="saveDraft"
-              @keydown.esc="toggleTaskCreation"
-            />
-            <select
-              @focus="handleCustomInput"
-              @change="handleSelect"
-              v-model="selectedInput"
-              :class="`dropdown task-name ${showCustomInput ? 'dropdown-hidden' : ''}`"
-            >
-              <option value="custom">{{ customSelectValue }}</option>
-
-              <template :key="category.name" v-for="category in preMadeTasks">
-                <option disabled :value="category.name">{{ category.name }}</option>
-                <option v-for="item in category.items" :value="item" :key="item">
-                  {{ item }}
-                </option>
-              </template>
-            </select>
-            <button class="freq-badge" @click="cycleDraftFrequency">
-              {{ draftTask.frequency }}
-            </button>
-          </div>
+        <div class="xp-text">
+          <strong>{{ currentXP }}</strong> <span class="muted">/ {{ xpForNextLevel }} XP</span>
         </div>
-      </TaskList>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" :style="{ width: `${progressPercent}%` }"></div>
+      </div>
+    </div>
+    <div class="card graph-card">
+      <ContributionGraph />
     </div>
   </div>
 </template>
@@ -202,22 +110,8 @@ const cycleDraftFrequency = () => {
   background-color: var(--background-color);
 }
 
-.dropdown {
-  // https://stackoverflow.com/questions/38788848/positioning-of-an-arrow-in-an-html-select
-  background: url("data:image/svg+xml,<svg height='10px' width='10px' viewBox='0 0 16 16' fill='%23000000' xmlns='http://www.w3.org/2000/svg'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>")
-    no-repeat;
-  background-position: calc(100% - 1.5rem) center !important;
-  -moz-appearance: none !important;
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  padding-right: 2rem !important;
-  border: none;
-  outline: none;
-  width: 100%;
-}
-
-.dropdown-hidden {
-  width: 10%;
+.share-button i {
+  margin-left: 0.25rem;
 }
 
 .input {
@@ -409,10 +303,7 @@ const cycleDraftFrequency = () => {
   background: transparent;
   outline: none;
   padding: 0.4rem 0.2rem;
-
-  &:focus {
-    border-bottom: 2px solid var(--accent-color-tertiary);
-  }
+  border-bottom: 2px solid var(--accent-color-tertiary);
 }
 
 .freq-badge {
@@ -432,9 +323,79 @@ const cycleDraftFrequency = () => {
   }
 }
 
+.center-align-btn {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+
+#user-export-div {
+  h1 {
+    color: var(--accent-color-primary);
+  }
+
+  width: 700px;
+  height: 700px;
+  background-color: var(--background-color);
+  padding: 1rem;
+  border: var(--accent-color-primary) 0.5rem solid;
+}
+
+@media (max-width: 768px) {
+  .content-container {
+    padding: 1rem 0.75rem;
+  }
+
+  .card {
+    padding: 1.25rem;
+  }
+
+  .draft-card {
+    padding: 1rem;
+  }
+
+  .task-details {
+    gap: 0.5rem;
+  }
+}
+
 @media (max-width: 480px) {
   .date-header {
     font-size: 1.2rem;
+  }
+
+  .draft-card {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .task-details {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .task-name {
+    font-size: 0.95rem;
+    flex-basis: 100%;
+  }
+
+  .emoji-trigger {
+    font-size: 1.25rem;
+    padding: 0.2rem 0.4rem;
+    flex-shrink: 0;
+    order: 1;
+  }
+
+  .freq-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.6rem;
+    flex-shrink: 0;
+    order: 3;
+  }
+
+  .emoji-picker-wrapper {
+    left: 0;
+    top: -260px;
   }
 }
 </style>

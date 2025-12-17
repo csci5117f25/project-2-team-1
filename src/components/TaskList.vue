@@ -43,6 +43,12 @@ const isPending = (taskId: string): boolean => {
   return pendingToggles.value.has(taskId);
 };
 
+const clearInput = () => {
+  if (draftTask.value) {
+    draftTask.value.name = "";
+  }
+};
+
 const sortedTasks = computed<(Task & { id: string })[]>(() => {
   const taskList = (tasksData?.value || []) as (Task & { id: string })[];
   if (taskList.length === 0) return [];
@@ -151,7 +157,7 @@ const toggleTaskCreation = async () => {
     draftTask.value = {
       frequency: "daily",
       name: "",
-      icon: "",
+      icon: "😎",
       last_completed_time: 0,
       current_streak: 0,
       xp: 10,
@@ -184,8 +190,13 @@ const handlePresetSelect = (event: Event) => {
 };
 
 const cycleDraftFrequency = () => {
-  if (draftTask.value) {
-    draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
+  if (!draftTask.value) return;
+  if (draftTask.value.frequency === "daily") {
+    return (draftTask.value.frequency = "weekly");
+  } else if (draftTask.value.frequency === "weekly") {
+    return (draftTask.value.frequency = "monthly");
+  } else {
+    return (draftTask.value.frequency = "daily");
   }
 };
 </script>
@@ -210,9 +221,46 @@ const cycleDraftFrequency = () => {
         </button>
       </div>
 
-      <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
-        {{ draftTask.icon || "😎" }}
-      </button>
+      <div class="task-details">
+        <div class="input-wrapper">
+          <input
+            ref="draftInput"
+            class="task-input"
+            type="text"
+            v-model="draftTask.name"
+            placeholder="What do you need to do?"
+            @keydown.enter="saveDraft"
+            @keydown.esc="toggleTaskCreation"
+          />
+          <button
+            class="small-btn add-btn draft-task"
+            @click="clearInput"
+            aria-label="Add new task"
+          >
+            <i class="fa-solid fa-eraser"></i>
+          </button>
+        </div>
+
+        <button class="emoji-trigger" @click="showEmojiPicker = !showEmojiPicker">
+          {{ draftTask.icon || "😎" }}
+        </button>
+
+        <select @change="handlePresetSelect" v-model="selectedInput" class="task-ideas-dropdown">
+          <option class="dropdown-header" value="" disabled selected>Task Ideas</option>
+
+          <template :key="category.name" v-for="category in preMadeTasks">
+            <optgroup :label="category.name">
+              <option v-for="item in category.items" :value="item" :key="item">
+                {{ item }}
+              </option>
+            </optgroup>
+          </template>
+        </select>
+
+        <button class="freq-badge" @click="cycleDraftFrequency">
+          {{ draftTask.frequency }}
+        </button>
+      </div>
 
       <div v-if="showEmojiPicker" class="emoji-picker-wrapper">
         <EmojiPicker
@@ -223,33 +271,6 @@ const cycleDraftFrequency = () => {
             }
           "
         ></EmojiPicker>
-      </div>
-
-      <div class="task-details">
-        <input
-          ref="draftInput"
-          class="task-input"
-          type="text"
-          v-model="draftTask.name"
-          placeholder="What do you need to do?"
-          @keydown.enter="saveDraft"
-          @keydown.esc="toggleTaskCreation"
-        />
-
-        <select @change="handlePresetSelect" v-model="selectedInput" class="task-ideas-dropdown">
-          <option value="" disabled selected>Task Ideas</option>
-
-          <template :key="category.name" v-for="category in preMadeTasks">
-            <option disabled :value="category.name">{{ category.name }}</option>
-            <option v-for="item in category.items" :value="item" :key="item">
-              {{ item }}
-            </option>
-          </template>
-        </select>
-
-        <button class="freq-badge" @click="cycleDraftFrequency">
-          {{ draftTask.frequency }}
-        </button>
       </div>
     </div>
 
@@ -310,6 +331,10 @@ const cycleDraftFrequency = () => {
   gap: 1rem;
 }
 
+.dropdown-header {
+  font-style: italic;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -318,9 +343,22 @@ const cycleDraftFrequency = () => {
 
   h2 {
     font-size: 1.4rem;
-    color: var(--accent-color-quaternary);
+    color: var(--accent-color-primary);
     margin: 0;
   }
+}
+
+.input-wrapper {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  margin-right: 0.25rem;
+}
+
+.small-btn {
+  height: 24px !important;
+  width: 24px !important;
+  font-size: 10px !important;
 }
 
 .add-btn {
@@ -361,6 +399,7 @@ const cycleDraftFrequency = () => {
   border: 2px solid var(--accent-color-tertiary);
   cursor: default;
   margin-bottom: 1rem;
+  z-index: 10;
 }
 
 .icon-btn {
@@ -498,6 +537,7 @@ const cycleDraftFrequency = () => {
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background-color: var(--accent-color-quaternary);
   }
 
   &.completed {
@@ -508,6 +548,10 @@ const cycleDraftFrequency = () => {
       text-decoration: line-through;
       color: #999;
     }
+  }
+
+  &.completed:hover {
+    background-color: var(--accent-color-quinary);
   }
 
   &.pending {
@@ -555,10 +599,7 @@ const cycleDraftFrequency = () => {
   background: transparent;
   outline: none;
   padding: 0.4rem 0.2rem;
-
-  &:focus {
-    border-bottom: 2px solid var(--accent-color-tertiary);
-  }
+  border-bottom: 2px solid var(--accent-color-tertiary);
 }
 
 .task-ideas-dropdown {
@@ -631,13 +672,81 @@ const cycleDraftFrequency = () => {
   border-radius: 10px;
 }
 
+@media (max-width: 768px) {
+  .draft-card {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .task-details {
+    flex-wrap: wrap;
+  }
+
+  .task-input {
+    min-width: 100px;
+  }
+
+  .task-ideas-dropdown {
+    min-width: 100px;
+  }
+}
+
 @media (max-width: 480px) {
   .task-card {
     padding: 0.8rem;
+    gap: 0.75rem;
+  }
+
+  .draft-card {
+    padding: 0.8rem;
+    gap: 0.75rem;
   }
 
   .task-name {
     font-size: 0.95rem;
+  }
+
+  .task-details {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .task-input {
+    flex-basis: 100%;
+    min-width: unset;
+  }
+
+  .emoji-trigger {
+    font-size: 1.25rem;
+    padding: 0.2rem 0.4rem;
+    flex-shrink: 0;
+    order: 1;
+  }
+
+  .task-ideas-dropdown {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+    order: 2;
+  }
+
+  .freq-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.6rem;
+    flex-shrink: 0;
+    order: 3;
+  }
+
+  .emoji-picker-wrapper {
+    left: 0;
+    right: 0;
+    top: -260px;
+  }
+
+  .menu-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
   }
 }
 </style>

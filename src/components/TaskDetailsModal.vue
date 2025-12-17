@@ -27,7 +27,9 @@ const isSlidingOut = ref(false);
 const showEmojiPicker = ref(false);
 const xpReward = computed(() => {
   if (!editedTask.value) return 0;
-  return editedTask.value.frequency === "daily" ? 10 : 50;
+  if (editedTask.value.frequency === "daily") return 10;
+  if (editedTask.value.frequency === "weekly") return 30;
+  if (editedTask.value.frequency === "monthly") return 50;
 });
 
 const isTaskCompleted = computed(() => {
@@ -44,8 +46,14 @@ const completeButtonText = computed(() => {
 });
 
 const toggleFrequency = () => {
-  if (editedTask.value) {
-    editedTask.value.frequency = editedTask.value.frequency === "daily" ? "monthly" : "daily";
+  if (!editedTask.value) return;
+
+  if (editedTask.value.frequency === "daily") {
+    editedTask.value.frequency = "weekly";
+  } else if (editedTask.value.frequency === "weekly") {
+    editedTask.value.frequency = "monthly";
+  } else {
+    editedTask.value.frequency = "daily";
   }
 };
 
