@@ -212,14 +212,14 @@ export const calculateGlobalStreak = async (shouldIncrement: boolean = false) =>
       return 0; // streak broken
     }
 
-    // Only increment if shouldIncrement is true, all tasks are complete, and we haven't incremented today
+    // only increment if shouldIncrement is true, all tasks are complete, and we haven't incremented today
     if (shouldIncrement && allTasksCompletedToday) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const lastStreakDay = new Date(lastStreakDate);
       lastStreakDay.setHours(0, 0, 0, 0);
 
-      // Only increment if we haven't already incremented today
+      // only increment if we haven't already incremented today
       if (today.getTime() > lastStreakDay.getTime()) {
         return { streak: currentStreak + 1, incremented: true };
       }
@@ -260,7 +260,7 @@ export const markTaskComplete = async (id: string) => {
         streak: streakResult.streak,
       };
 
-      // Only update last_streak_date if we actually incremented the streak
+      // only update last_streak_date if we actually incremented the streak
       if (streakResult.incremented) {
         updateData.last_streak_date = Date.now();
       }
