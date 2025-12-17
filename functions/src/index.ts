@@ -25,54 +25,107 @@ export const sendDailyNotifications = onSchedule(
 );
 
 export const sendTestNotification = onRequest(async (req, res) => {
-  if (req.method !== "POST") {
-    res.status(405).json({error: "Use POST"});
-    return;
+  try {
+    if (req.method !== "POST") {
+      res.status(405).json({error: "Use POST"});
+      return;
+    }
+
+    const providedKey =
+      (typeof req.query.key === "string" ? req.query.key : null) ??
+      req.get("x-test-notification-key") ??
+      null;
+
+    const db = admin.firestore();
+    const configSnap = await db.doc("config/testNotification").get();
+    const expectedKey =
+      (
+        configSnap.exists ?
+          (configSnap.get("key") as string | undefined) :
+          undefined
+      ) ?? "";
+
+    if (!expectedKey) {
+      res.status(503).json({
+        error: "Missing server config",
+        message:
+          "Ensure Firestore doc config/testNotification has a { key: \"...\" }",
+      });
+      return;
+    }
+
+    if (!providedKey || providedKey !== expectedKey) {
+      res.status(403).json({error: "Forbidden"});
+      return;
+    }
+
+    // Allows for optional title/body in the request, else defaults are used
+    const body =
+      typeof req.body === "object" && req.body ?
+        (req.body as Record<string, unknown>) :
+        {};
+    const title =
+      typeof body.title === "string" && body.title ?
+        body.title :
+        NOTIFICATION_TITLE;
+    const messageBody =
+      typeof body.body === "string" && body.body ?
+        body.body :
+        NOTIFICATION_BODY;
+
+    const result = await sendNotificationToAllTokens(title, messageBody);
+    res.status(200).json(result);
+  } catch (error) {
+    logger.error("sendTestNotification failed", error);
+    res.status(500).json({error: "Internal Server Error"});
   }
-
-  const providedKey =
-    (typeof req.query.key === "string" ? req.query.key : null) ??
-    req.get("x-test-notification-key") ??
-    null;
-
-  const db = admin.firestore();
-  const configSnap = await db.doc("config/testNotification").get();
-  const expectedKey =
-    (
-      configSnap.exists ?
-        (configSnap.get("key") as string | undefined) :
-        undefined
-    ) ?? "";
-
-  if (!expectedKey) {
-    res.status(503).json({
-      error: "Missing server config",
-      message:
-        "Ensure Firestore doc config/testNotification has a { key: \"...\" }.",
-    });
-    return;
-  }
-
-  if (!providedKey || providedKey !== expectedKey) {
-    res.status(403).json({error: "Forbidden"});
-    return;
-  }
-
-  // Allows for optional title/body in the request, else defaults are used
-  const body =
-    typeof req.body === "object" && req.body ?
-      (req.body as Record<string, unknown>) :
-      {};
-  const title =
-    typeof body.title === "string" && body.title ?
-      body.title :
-      NOTIFICATION_TITLE;
-  const messageBody =
-    typeof body.body === "string" && body.body ? body.body : NOTIFICATION_BODY;
-
-  const result = await sendNotificationToAllTokens(title, messageBody);
-  res.status(200).json(result);
 });
+
+type NotificationTokenDoc = {
+  token: string;
+  userId: string;
+  ref: FirebaseFirestore.DocumentReference;
+};
+
+/**
+ * Lists all stored notification token docs.
+ * Attempts a collectionGroup("notification_tokens") query first, and if that
+ * fails, falls back to scanning users/* /notification_tokens for reliability.
+ * @param {FirebaseFirestore.Firestore} db - Firestore instance
+ * @return {Promise<NotificationTokenDoc[]>} Token docs with refs for cleanup
+ */
+async function listNotificationTokenDocs(
+  db: FirebaseFirestore.Firestore
+): Promise<NotificationTokenDoc[]> {
+  try {
+    const tokensSnap = await db.collectionGroup("notification_tokens").get();
+    const tokens: NotificationTokenDoc[] = [];
+    for (const tokenDoc of tokensSnap.docs) {
+      const userId = tokenDoc.ref.parent.parent?.id;
+      if (!userId) continue;
+      tokens.push({token: tokenDoc.id, userId, ref: tokenDoc.ref});
+    }
+    return tokens;
+  } catch (error) {
+    // Fall back to scanning users/*/notification_tokens.
+    logger.warn(
+      "collectionGroup(notification_tokens) failed, using back to users scan:",
+      error
+    );
+
+    const usersSnap = await db.collection("users").get();
+    const tokens: NotificationTokenDoc[] = [];
+    for (const userDoc of usersSnap.docs) {
+      const userId = userDoc.id;
+      const userTokensSnap =
+        await userDoc.ref.collection("notification_tokens").get();
+      for (const tokenDoc of userTokensSnap.docs) {
+        tokens.push({token: tokenDoc.id, userId, ref: tokenDoc.ref});
+      }
+    }
+    return tokens;
+  }
+}
 
 /**
  * @typedef {Object} NotificationResult
@@ -93,14 +146,7 @@ export const sendTestNotification = onRequest(async (req, res) => {
  */
 async function sendNotificationToAllTokens(title: string, body: string) {
   const db = admin.firestore();
-  const tokensSnap = await db.collectionGroup("notification_tokens").get();
-
-  const tokens: Array<{token: string; userId: string}> = [];
-  for (const tokenDoc of tokensSnap.docs) {
-    const userId = tokenDoc.ref.parent.parent?.id;
-    if (!userId) continue;
-    tokens.push({token: tokenDoc.id, userId});
-  }
+  const tokens = await listNotificationTokenDocs(db);
 
   const messaging = admin.messaging();
   const chunkSize = 20; // send at most 20 at a time
@@ -112,7 +158,7 @@ async function sendNotificationToAllTokens(title: string, body: string) {
 
   for (let i = 0; i < tokens.length; i += chunkSize) {
     const chunk = tokens.slice(i, i + chunkSize);
-    const sendPromises = chunk.map(({token, userId}) =>
+    const sendPromises = chunk.map(({token, userId, ref}) =>
       messaging
         .send({
           token,
@@ -130,8 +176,9 @@ async function sendNotificationToAllTokens(title: string, body: string) {
         })
         .catch(async (error) => {
           failed += 1;
+          // cleanup old/stale tokens
           if (error.code === "messaging/registration-token-not-registered") {
-            await cleanupToken(token);
+            await ref.delete();
             cleaned += 1;
           } else {
             logger.error("Failed to send", {token, error});
@@ -142,19 +189,4 @@ async function sendNotificationToAllTokens(title: string, body: string) {
     await Promise.all(sendPromises);
   }
   return {attempted: tokens.length, sent, failed, cleaned};
-}
-
-/**
- * Removes stale notification tokens from Firestore.
- * @param {string} token - The notification token to remove.
- */
-async function cleanupToken(token: string) {
-  const db = admin.firestore();
-  const tokenDocs = await db
-    .collectionGroup("notification_tokens")
-    .where("token", "==", token)
-    .get();
-  for (const doc of tokenDocs.docs) {
-    await doc.ref.delete();
-  }
 }
