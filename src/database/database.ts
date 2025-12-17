@@ -131,6 +131,8 @@ const calculateStreakTaskContinue = (task: DocumentData) => {
     // for monthly: if created more than 1 month ago and never completed, streak broken
     if (task.frequency === "daily") {
       return delta <= timeInADay;
+    } else if (task.frequency === "weekly") {
+      return delta <= timeInADay * 7;
     } else if (task.frequency === "monthly") {
       return delta <= timeInAMonth;
     }
@@ -146,6 +148,8 @@ const calculateStreakTaskContinue = (task: DocumentData) => {
   switch (task.frequency) {
     case "daily":
       return delta <= timeInADay * 2;
+    case "weekly":
+      return delta <= timeInADay * 8;
     case "monthly":
       return delta <= timeInAMonth + timeInADay;
   }
@@ -161,10 +165,13 @@ export const isCompletedToday = (task: DocumentData) => {
     last.getMonth() === now.getMonth() &&
     last.getFullYear() === now.getFullYear();
 
+  const isSameWeek = last.getTime() >= now.getTime() - 1000 * 60 * 60 * 24 * 7;
+
   const isSameMonth =
     last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear();
 
   if (task.frequency === "daily") return isSameDay;
+  if (task.frequency === "weekly") return isSameWeek;
   if (task.frequency === "monthly") return isSameMonth;
   return false;
 };
@@ -219,7 +226,9 @@ export const markTaskComplete = async (id: string) => {
     if (task) {
       const completionTime = Date.now();
       const newStreak = calculateStreakTaskContinue(task) ? task.current_streak + 1 : 1;
-      const xpReward = task.frequency === "daily" ? 10 : 50;
+      let xpReward = 10;
+      if (task.frequency === "weekly") xpReward = 30;
+      if (task.frequency === "monthly") xpReward = 50;
       await updateTask(id, {
         last_completed_time: completionTime,
         current_streak: newStreak,
@@ -314,7 +323,9 @@ export const unmarkTaskComplete = async (id: string) => {
       ? Math.max(0, currentStreak - 1)
       : currentStreak;
 
-    const xpPenalty = task.frequency === "daily" ? 10 : 50;
+    let xpPenalty = 10;
+    if (task.frequency === "weekly") xpPenalty = 30;
+    if (task.frequency === "monthly") xpPenalty = 50;
     const newXp = Math.max(0, currentXp - xpPenalty);
 
     await setDoc(

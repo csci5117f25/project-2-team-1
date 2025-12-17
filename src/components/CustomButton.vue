@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-  defineEmits(['click'])
+defineEmits(["click"]);
 </script>
 
 <template>
@@ -12,7 +12,7 @@
   color: var(--background-color);
   border: none;
   border-radius: 9999px;
-  padding: 1.25rem 3.0rem;
+  padding: 1.25rem 3rem;
   font-size: 1rem;
 
   &:hover {
@@ -23,8 +23,7 @@
   }
 }
 
-
 i {
-  margin-left: 0.25rem
+  margin-left: 0.25rem;
 }
 </style>
