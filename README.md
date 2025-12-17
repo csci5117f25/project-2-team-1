@@ -77,7 +77,7 @@ Modal where user can edit a task.
 Stats page where user can view their tasks contribution graph, their level, streak, tasks, and share their progress with family & friends.
 
 <img width="1497" height="751" alt="Screenshot 2025-12-17 at 5 16 59 PM" src="https://github.com/user-attachments/assets/804e4005-73a2-4bbc-9668-91054f8cbc23" />
-Setting page where a user can manage their notification preferences or delete their account.
+Settings page where a user can manage their notification preferences or delete their account.
 
 <img width="1495" height="745" alt="Screenshot 2025-12-17 at 5 17 31 PM" src="https://github.com/user-attachments/assets/182697af-98bf-49ee-85ca-6d73f8ef1254" />
 Sidebar component.
