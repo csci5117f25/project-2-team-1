@@ -25,11 +25,7 @@ const isSidebarShown = ref(false);
     </button>
   </div>
 
-  <div
-    v-if="isSidebarShown"
-    class="sidebar-backdrop"
-    @click="isSidebarShown = false"
-  ></div>
+  <div v-if="isSidebarShown" class="sidebar-backdrop" @click="isSidebarShown = false"></div>
 
   <Sidebar @close-sidebar="isSidebarShown = false" v-if="isSidebarShown" />
 </template>

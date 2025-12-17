@@ -190,8 +190,13 @@ const handlePresetSelect = (event: Event) => {
 };
 
 const cycleDraftFrequency = () => {
-  if (draftTask.value) {
-    draftTask.value.frequency = draftTask.value.frequency === "daily" ? "monthly" : "daily";
+  if (!draftTask.value) return;
+  if (draftTask.value.frequency === "daily") {
+    return (draftTask.value.frequency = "weekly");
+  } else if (draftTask.value.frequency === "weekly") {
+    return (draftTask.value.frequency = "monthly");
+  } else {
+    return (draftTask.value.frequency = "daily");
   }
 };
 </script>
