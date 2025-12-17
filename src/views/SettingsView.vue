@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { deleteAccount, getUserSettings, updateUserSettings } from "@/database/database";
+import { deleteAccount } from "@/database/database";
 import {
+  arePushNotificationsSupported,
+  getStoredToken,
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
 } from "@/notifications/pushNotifications";
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref } from "vue";
 import { signOut } from "firebase/auth";
 import { useFirebaseAuth } from "vuefire";
 import Navbar from "@/components/NavbarComponent.vue";
@@ -17,48 +19,60 @@ const settingsLoaded = ref(false);
 const notificationsEnabled = ref(false);
 const syncingNotificationsToggle = ref(false);
 const isDeletePopupOpen = ref(false);
+const notificationsSupported = ref(false);
+const isIPhone = ref(false);
 
 const auth = useFirebaseAuth();
 
-watch(notificationsEnabled, async (newValue: boolean, oldValue: boolean) => {
+async function onNotificationsToggle() {
   if (!settingsLoaded.value || syncingNotificationsToggle.value) {
     return;
   }
 
+  if (!notificationsSupported.value) {
+    notificationsEnabled.value = false;
+    return;
+  }
+
+  const nextValue = !notificationsEnabled.value;
+  const previousValue = notificationsEnabled.value;
+
+  syncingNotificationsToggle.value = true;
   try {
-    if (newValue) {
+    if (nextValue) {
       await subscribeToPushNotifications();
+      // Only reflect "enabled" once the local token (final step) has been stored.
+      notificationsEnabled.value = Boolean(getStoredToken());
     } else {
       await unsubscribeFromPushNotifications();
+      notificationsEnabled.value = false;
     }
-
-    await updateUserSettings({
-      notifications: newValue,
-    });
   } catch (error) {
     console.error("Failed to toggle notifications", error);
-    // prevent UI from getting stuck in wrong state
-    syncingNotificationsToggle.value = true;
-    notificationsEnabled.value = oldValue;
+    notificationsEnabled.value = previousValue;
+  } finally {
     syncingNotificationsToggle.value = false;
   }
-});
+}
 
 onMounted(async () => {
-  // prefill all of the settings menu settings
-  const settings = await getUserSettings();
+  try {
+    // for additional help message for iPhone users, who have extra steps
+    isIPhone.value = typeof navigator !== "undefined" && /iPhone/i.test(navigator.userAgent);
+    notificationsSupported.value = await arePushNotificationsSupported();
 
-  if (settings?.notifications) {
-    notificationsEnabled.value = settings.notifications;
-
-    if (typeof window !== "undefined" && Notification.permission === "granted") {
-      subscribeToPushNotifications().catch((error) => {
-        console.error("Failed to subscribe to notifications", error);
-      });
-    }
+    const storedToken = getStoredToken();
+    // browser permission check
+    const permission =
+      typeof Notification === "undefined"
+        ? "default"
+        : (Notification.permission as NotificationPermission);
+    notificationsEnabled.value = Boolean(storedToken) && permission === "granted"; // if token and permission granted
+  } catch (error) {
+    console.error("Failed to load settings", error);
+  } finally {
+    settingsLoaded.value = true;
   }
-
-  settingsLoaded.value = true;
 });
 
 function closeModal() {
@@ -84,10 +98,28 @@ async function onDeleteAccount() {
     <div v-if="settingsLoaded" class="mobile-container">
       <h2>Settings</h2>
       <label class="switch">
-        <input type="checkbox" v-model="notificationsEnabled" />
+        <input
+          type="checkbox"
+          :checked="notificationsEnabled"
+          :disabled="!notificationsSupported || syncingNotificationsToggle"
+          @click.prevent="onNotificationsToggle"
+        />
         <span class="slider round"></span>
         <span class="switch-label">Notifications</span>
       </label>
+      <p v-if="!notificationsSupported" class="notifications-unsupported">
+        Notifications aren't supported on this browser/device.
+      </p>
+      <p v-if="!notificationsSupported && isIPhone" class="notifications-unsupported">
+        Are you trying to enable notifications on your iPhone? You must first
+        <a
+          href="https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          add this site to your Home Screen.
+        </a>
+      </p>
 
       <CustomButton @click="isDeletePopupOpen = true">Delete Account</CustomButton>
     </div>
@@ -123,6 +155,11 @@ async function onDeleteAccount() {
 
     &:focus + .slider {
       box-shadow: 0 0 1px var(--accent-color-primary);
+    }
+
+    &:disabled + .slider {
+      cursor: not-allowed;
+      opacity: 0.6;
     }
   }
 
@@ -184,5 +221,11 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.notifications-unsupported {
+  margin-top: 0.75rem;
+  color: var(--text-color-secondary);
+  font-size: 0.95rem;
 }
 </style>

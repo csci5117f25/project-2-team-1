@@ -7,7 +7,20 @@ const VAPID_PUBLIC_KEY =
 const SERVICE_WORKER_FILE = "/firebase-messaging-sw.js";
 const TOKEN_STORAGE_KEY = "gyst-webpush-token";
 
-const getStoredToken = () => {
+export const arePushNotificationsSupported = async () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  if (typeof Notification === "undefined") {
+    return false;
+  }
+
+  const supported = await isSupported().catch(() => false);
+  return supported;
+};
+
+export const getStoredToken = () => {
   if (typeof window === "undefined") {
     return null;
   }
@@ -59,6 +72,15 @@ export const subscribeToPushNotifications = async () => {
     return null;
   }
 
+  if (typeof Notification === "undefined") {
+    throw new Error("Notifications are not supported in this browsre.");
+  }
+
+  const messaging = await getMessagingInstance();
+  if (!messaging) {
+    throw new Error("Firebase Messaging is not supported in this browser.");
+  }
+
   const permission =
     Notification.permission === "default"
       ? await Notification.requestPermission()
@@ -66,11 +88,6 @@ export const subscribeToPushNotifications = async () => {
 
   if (permission !== "granted") {
     throw new Error("Notifications were not granted.");
-  }
-
-  const messaging = await getMessagingInstance();
-  if (!messaging) {
-    throw new Error("Firebase Messaging is not supported in this browser.");
   }
 
   const registration = await ensureServiceWorkerRegistration();
