@@ -62,7 +62,7 @@ This screen pops-up after the user clicks on a task from the homepage, and conta
 * Once enabled, expect a push notification to send at 11am daily.
 
 
-## Screenshots of Site (complete)
+## Screenshots of Site
 
 <img width="1505" height="744" alt="Screenshot 2025-12-17 at 5 09 46 PM" src="https://github.com/user-attachments/assets/346bef87-8851-4c75-8413-02bbd95f2896" />
 Splash page.
