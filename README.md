@@ -29,7 +29,7 @@ CSCI 5117, Fall 2025, [assignment description](https://canvas.umn.edu/courses/51
 
 Which (if any) device integration(s) does your app support?
 
-* mobile compatible (can add to homescreen on iphone and its different that)
+* mobile compatible (can add to homescreen on iphone and its different than when you do that on a website that doesn't support it)
 
 Which (if any) progressive web app feature(s) does your app support?
 
